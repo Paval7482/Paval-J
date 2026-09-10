@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
@@ -55,12 +55,14 @@ import {
   MapPin,
   Activity,
   Edit3,
+  UserCheck,
 } from 'lucide-react';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { ImportModal } from '@/components/contacts/import-modal';
 import { CustomFieldsManager } from '@/components/contacts/custom-fields-manager';
 import { CustomerProfileModal } from '@/components/contacts/customer-profile-modal';
+import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { GatedButton } from '@/components/ui/gated-button';
 import { useTranslations } from 'next-intl';
@@ -71,11 +73,20 @@ const PAGE_SIZE = 25;
 interface ContactWithProfile extends Contact {
   tags?: Tag[];
   profile?: CustomerProfileData;
+  assignedAgentName?: string;
+}
+
+interface TeamMember {
+  user_id: string;
+  full_name: string;
+  role: string;
 }
 
 export default function ContactsPage() {
   const t = useTranslations('Contacts.page');
   const supabase = createClient();
+  const { user, accountRole, accountId } = useAuth();
+  const isAdminOrOwner = accountRole === 'owner' || accountRole === 'admin';
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
 
@@ -85,6 +96,8 @@ export default function ContactsPage() {
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [agentFilter, setAgentFilter] = useState<string>('all');
+  const [members, setMembers] = useState<TeamMember[]>([]);
 
   // Modals
   const [formOpen, setFormOpen] = useState(false);
@@ -110,6 +123,22 @@ export default function ContactsPage() {
   const [tagsMap, setTagsMap] = useState<Record<string, Tag>>({});
   const fetchSeq = useRef(0);
 
+  // Load team members
+  useEffect(() => {
+    async function loadMembers() {
+      try {
+        const res = await fetch('/api/account/members');
+        const data = await res.json();
+        if (data.ok && Array.isArray(data.members)) {
+          setMembers(data.members);
+        }
+      } catch {
+        // Ignored
+      }
+    }
+    loadMembers();
+  }, []);
+
   const fetchTags = useCallback(async () => {
     const { data } = await supabase.from('tags').select('*');
     if (data) {
@@ -124,6 +153,7 @@ export default function ContactsPage() {
   }, [supabase]);
 
   const fetchContacts = useCallback(async () => {
+    if (!user) return;
     const seq = ++fetchSeq.current;
     setLoading(true);
     setSelected(new Set());
@@ -132,114 +162,175 @@ export default function ContactsPage() {
     const to = from + PAGE_SIZE - 1;
     const term = search.trim();
 
-    let contactRows: Contact[];
-    let count: number;
+    try {
+      // Step 1: If Executive (non-admin), determine which contact IDs are assigned to this user
+      let assignedContactIds: string[] | null = null;
 
-    if (selectedTagIds.length > 0) {
-      const { data, error } = await supabase.rpc('filter_contacts_by_tags', {
-        p_tag_ids: selectedTagIds,
-        p_search: term || null,
-        p_limit: PAGE_SIZE,
-        p_offset: from,
+      if (!isAdminOrOwner) {
+        const [convRes, callRes] = await Promise.all([
+          supabase.from('conversations').select('contact_id').eq('assigned_agent_id', user.id),
+          supabase.from('call_logs').select('customer_number').eq('assigned_to', user.id),
+        ]);
+
+        const ids = new Set<string>();
+        convRes.data?.forEach((c) => {
+          if (c.contact_id) ids.add(c.contact_id);
+        });
+
+        // Also resolve customer numbers from call logs to contact IDs if any
+        if (callRes.data && callRes.data.length > 0) {
+          const numbers = callRes.data.map((c) => c.customer_number).filter(Boolean);
+          const { data: matchedContacts } = await supabase
+            .from('contacts')
+            .select('id')
+            .in('phone', numbers);
+          matchedContacts?.forEach((mc) => ids.add(mc.id));
+        }
+
+        assignedContactIds = Array.from(ids);
+      } else if (agentFilter !== 'all') {
+        // Admin selected a specific agent filter
+        const { data: agentConvs } = await supabase
+          .from('conversations')
+          .select('contact_id')
+          .eq('assigned_agent_id', agentFilter);
+        assignedContactIds = agentConvs?.map((c) => c.contact_id).filter(Boolean) as string[];
+      }
+
+      // If Executive has 0 assigned leads, show empty result
+      if (assignedContactIds !== null && assignedContactIds.length === 0) {
+        setContacts([]);
+        setTotalCount(0);
+        setLoading(false);
+        return;
+      }
+
+      let contactRows: Contact[] = [];
+      let count = 0;
+
+      if (selectedTagIds.length > 0) {
+        const { data, error } = await supabase.rpc('filter_contacts_by_tags', {
+          p_tag_ids: selectedTagIds,
+          p_search: term || null,
+          p_limit: PAGE_SIZE,
+          p_offset: from,
+        });
+        if (seq !== fetchSeq.current) return;
+        if (error) throw error;
+        const rows = (data ?? []) as { contact: Contact; total_count: number }[];
+        let rawContacts = rows.map((r) => r.contact);
+        if (assignedContactIds !== null) {
+          rawContacts = rawContacts.filter((c) => assignedContactIds!.includes(c.id));
+        }
+        contactRows = rawContacts;
+        count = rows.length > 0 ? Number(rows[0].total_count) : 0;
+      } else {
+        let query = supabase
+          .from('contacts')
+          .select('*', { count: 'exact' })
+          .order('created_at', { ascending: false });
+
+        if (assignedContactIds !== null) {
+          query = query.in('id', assignedContactIds);
+        }
+
+        if (term) {
+          const like = `%${term}%`;
+          query = query.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
+        }
+
+        const { data, count: exactCount, error } = await query.range(from, to);
+        if (seq !== fetchSeq.current) return;
+        if (error) throw error;
+        contactRows = data ?? [];
+        count = exactCount ?? 0;
+      }
+
+      setTotalCount(count);
+
+      if (contactRows.length === 0) {
+        setContacts([]);
+        setLoading(false);
+        return;
+      }
+
+      const contactIds = contactRows.map((c) => c.id);
+
+      // Fetch tags, custom values, and assigned conversations in parallel
+      const [contactTagsRes, customFieldsRes, customValuesRes, convsRes] = await Promise.all([
+        supabase.from('contact_tags').select('contact_id, tag_id').in('contact_id', contactIds),
+        supabase.from('custom_fields').select('id, field_name'),
+        supabase.from('contact_custom_values').select('*').in('contact_id', contactIds),
+        supabase.from('conversations').select('contact_id, assigned_agent_id').in('contact_id', contactIds),
+      ]);
+
+      if (seq !== fetchSeq.current) return;
+
+      const tagsByContact: Record<string, string[]> = {};
+      contactTagsRes.data?.forEach((ct) => {
+        if (!tagsByContact[ct.contact_id]) tagsByContact[ct.contact_id] = [];
+        tagsByContact[ct.contact_id].push(ct.tag_id);
       });
-      if (seq !== fetchSeq.current) return;
-      if (error) {
-        toast.error(t('toastFailedLoad'));
-        setLoading(false);
-        return;
-      }
-      const rows = (data ?? []) as { contact: Contact; total_count: number }[];
-      contactRows = rows.map((r) => r.contact);
-      count = rows.length > 0 ? Number(rows[0].total_count) : 0;
-    } else {
-      let query = supabase
-        .from('contacts')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(from, to);
 
-      if (term) {
-        const like = `%${term}%`;
-        query = query.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
-      }
+      const fieldMap: Record<string, string> = {};
+      customFieldsRes.data?.forEach((f) => {
+        fieldMap[f.id] = f.field_name;
+      });
 
-      const { data, count: exactCount, error } = await query;
-      if (seq !== fetchSeq.current) return;
-      if (error) {
-        toast.error(t('toastFailedLoad'));
-        setLoading(false);
-        return;
-      }
-      contactRows = data ?? [];
-      count = exactCount ?? 0;
-    }
+      const memberMap: Record<string, string> = {};
+      members.forEach((m) => {
+        memberMap[m.user_id] = m.full_name;
+      });
 
-    setTotalCount(count);
+      const assignedAgentByContact: Record<string, string> = {};
+      convsRes.data?.forEach((cv) => {
+        if (cv.contact_id && cv.assigned_agent_id) {
+          assignedAgentByContact[cv.contact_id] = memberMap[cv.assigned_agent_id] || 'Executive';
+        }
+      });
 
-    if (contactRows.length === 0) {
-      setContacts([]);
+      const profilesByContact: Record<string, CustomerProfileData> = {};
+      contactRows.forEach((c) => {
+        profilesByContact[c.id] = {
+          name: c.name || '',
+          phone: c.phone || '',
+          email: c.email || '',
+          company: c.company || '',
+          businessType: 'Murukku Business',
+          capacity: '50 - 100 Kg/Day',
+          state: 'Tamil Nadu',
+          district: '',
+          leadStatus: 'In Follow-up',
+        };
+      });
+
+      customValuesRes.data?.forEach((v) => {
+        const fName = fieldMap[v.custom_field_id];
+        if (!fName || !profilesByContact[v.contact_id]) return;
+
+        if (fName === 'Alternative Phone') profilesByContact[v.contact_id].altPhone = v.value;
+        if (fName === 'State') profilesByContact[v.contact_id].state = v.value;
+        if (fName === 'District') profilesByContact[v.contact_id].district = v.value;
+        if (fName === 'Business Type') profilesByContact[v.contact_id].businessType = v.value;
+        if (fName === 'Production Capacity') profilesByContact[v.contact_id].capacity = v.value;
+        if (fName === 'Lead Status') profilesByContact[v.contact_id].leadStatus = v.value;
+      });
+
+      const enriched: ContactWithProfile[] = contactRows.map((c) => ({
+        ...c,
+        tags: (tagsByContact[c.id] ?? []).map((tid) => tagsMap[tid]).filter(Boolean),
+        profile: profilesByContact[c.id],
+        assignedAgentName: assignedAgentByContact[c.id] || 'Unassigned',
+      }));
+
+      setContacts(enriched);
+    } catch (err) {
+      console.error('Failed to load contacts:', err);
+      toast.error(t('toastFailedLoad'));
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const contactIds = contactRows.map((c) => c.id);
-
-    // Fetch tags & custom values in parallel
-    const [contactTagsRes, customFieldsRes, customValuesRes] = await Promise.all([
-      supabase.from('contact_tags').select('contact_id, tag_id').in('contact_id', contactIds),
-      supabase.from('custom_fields').select('id, field_name'),
-      supabase.from('contact_custom_values').select('*').in('contact_id', contactIds),
-    ]);
-
-    if (seq !== fetchSeq.current) return;
-
-    const tagsByContact: Record<string, string[]> = {};
-    contactTagsRes.data?.forEach((ct) => {
-      if (!tagsByContact[ct.contact_id]) tagsByContact[ct.contact_id] = [];
-      tagsByContact[ct.contact_id].push(ct.tag_id);
-    });
-
-    const fieldMap: Record<string, string> = {};
-    customFieldsRes.data?.forEach((f) => {
-      fieldMap[f.id] = f.field_name;
-    });
-
-    const profilesByContact: Record<string, CustomerProfileData> = {};
-    contactRows.forEach((c) => {
-      profilesByContact[c.id] = {
-        name: c.name || '',
-        phone: c.phone || '',
-        email: c.email || '',
-        company: c.company || '',
-        businessType: 'Murukku Business',
-        capacity: '50 - 100 Kg/Day',
-        state: 'Tamil Nadu',
-        district: '',
-        leadStatus: 'In Follow-up',
-      };
-    });
-
-    customValuesRes.data?.forEach((v) => {
-      const fName = fieldMap[v.custom_field_id];
-      if (!fName || !profilesByContact[v.contact_id]) return;
-
-      if (fName === 'Alternative Phone') profilesByContact[v.contact_id].altPhone = v.value;
-      if (fName === 'State') profilesByContact[v.contact_id].state = v.value;
-      if (fName === 'District') profilesByContact[v.contact_id].district = v.value;
-      if (fName === 'Business Type') profilesByContact[v.contact_id].businessType = v.value;
-      if (fName === 'Production Capacity') profilesByContact[v.contact_id].capacity = v.value;
-      if (fName === 'Lead Status') profilesByContact[v.contact_id].leadStatus = v.value;
-    });
-
-    const enriched: ContactWithProfile[] = contactRows.map((c) => ({
-      ...c,
-      tags: (tagsByContact[c.id] ?? []).map((tid) => tagsMap[tid]).filter(Boolean),
-      profile: profilesByContact[c.id],
-    }));
-
-    setContacts(enriched);
-    setLoading(false);
-  }, [supabase, page, search, selectedTagIds, tagsMap, t]);
+  }, [supabase, page, search, selectedTagIds, tagsMap, agentFilter, isAdminOrOwner, user, members, t]);
 
   useEffect(() => {
     fetchTags();
@@ -347,7 +438,7 @@ export default function ContactsPage() {
   const allTags = Object.values(tagsMap).sort((a, b) =>
     a.name.localeCompare(b.name)
   );
-  const hasActiveFilters = search.trim().length > 0 || selectedTagIds.length > 0;
+  const hasActiveFilters = search.trim().length > 0 || selectedTagIds.length > 0 || agentFilter !== 'all';
 
   function toggleTagFilter(tagId: string) {
     setSelectedTagIds((prev) =>
@@ -358,6 +449,7 @@ export default function ContactsPage() {
 
   function clearTagFilters() {
     setSelectedTagIds([]);
+    setAgentFilter('all');
     setPage(0);
   }
 
@@ -367,13 +459,17 @@ export default function ContactsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
+            <h1 className="text-2xl font-bold text-foreground">
+              {isAdminOrOwner ? 'Customer Profiles & Leads (Admin All)' : 'My Assigned Customers'}
+            </h1>
             <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-              Customer Profiles & Leads
+              {isAdminOrOwner ? 'Admin Panel' : 'Executive Panel'}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            {totalCount > 0 ? t('subtitle', { count: totalCount }) : t('subtitleZero')}
+            {isAdminOrOwner
+              ? `Overall Customer directory across all executives (${totalCount} total contacts)`
+              : `Customers & leads assigned to you (${totalCount} assigned)`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -409,7 +505,7 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      {/* Search + tag filter */}
+      {/* Search + tag filter + Executive filter */}
       <div className="space-y-2">
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative w-full max-w-sm">
@@ -424,6 +520,31 @@ export default function ContactsPage() {
               className="pl-8 bg-card border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
+
+          {/* Admin Executive Filter */}
+          {isAdminOrOwner ? (
+            <select
+              value={agentFilter}
+              onChange={(e) => {
+                setAgentFilter(e.target.value);
+                setPage(0);
+              }}
+              aria-label="Filter by Executive"
+              className="h-9 rounded-md border border-input bg-card px-3 py-1 text-xs font-medium shadow-sm focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+            >
+              <option value="all">All Executives (All Customers)</option>
+              {members.map((m) => (
+                <option key={m.user_id} value={m.user_id}>
+                  {m.full_name} ({m.role})
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1 text-xs font-semibold text-primary border border-primary/20">
+              <UserCheck className="h-3.5 w-3.5" />
+              <span>Showing My Assigned Leads Only</span>
+            </div>
+          )}
 
           <Popover>
             <PopoverTrigger
@@ -571,6 +692,7 @@ export default function ContactsPage() {
               <TableHead className="text-muted-foreground font-semibold">Business Type</TableHead>
               <TableHead className="text-muted-foreground font-semibold">Capacity</TableHead>
               <TableHead className="text-muted-foreground font-semibold">Lead Status</TableHead>
+              {isAdminOrOwner && <TableHead className="text-muted-foreground font-semibold">Assigned Agent</TableHead>}
               <TableHead className="text-muted-foreground font-semibold text-center">Quick Call / WA</TableHead>
               <TableHead className="text-muted-foreground text-right">Actions</TableHead>
             </TableRow>
@@ -578,7 +700,7 @@ export default function ContactsPage() {
           <TableBody>
             {loading ? (
               <TableRow className="border-border">
-                <TableCell colSpan={9} className="text-center py-12">
+                <TableCell colSpan={isAdminOrOwner ? 10 : 9} className="text-center py-12">
                   <div className="flex flex-col items-center gap-2">
                     <Loader2 className="size-6 animate-spin text-primary" />
                     <p className="text-sm text-muted-foreground">{t('loading')}</p>
@@ -587,11 +709,11 @@ export default function ContactsPage() {
               </TableRow>
             ) : contacts.length === 0 ? (
               <TableRow className="border-border">
-                <TableCell colSpan={9} className="text-center py-12">
+                <TableCell colSpan={isAdminOrOwner ? 10 : 9} className="text-center py-12">
                   <div className="flex flex-col items-center gap-2">
                     <Users className="size-8 text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">
-                      {hasActiveFilters ? t('noContactsMatch') : t('noContactsYet')}
+                      {hasActiveFilters ? t('noContactsMatch') : 'No contacts assigned to you yet.'}
                     </p>
                     {!hasActiveFilters && (
                       <GatedButton
@@ -700,6 +822,16 @@ export default function ContactsPage() {
                         {profile?.leadStatus || 'In Follow-up'}
                       </span>
                     </TableCell>
+
+                    {/* Assigned Agent (Admin Only) */}
+                    {isAdminOrOwner && (
+                      <TableCell className="text-xs font-medium text-foreground">
+                        <span className="inline-flex items-center gap-1">
+                          <UserCheck className="h-3 w-3 text-muted-foreground" />
+                          {contact.assignedAgentName}
+                        </span>
+                      </TableCell>
+                    )}
 
                     {/* 1-Click WhatsApp & Call */}
                     <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
