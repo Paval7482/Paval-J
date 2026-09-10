@@ -128,10 +128,10 @@ function getBaseUrl(request: Request): string {
     );
   } else {
     console.warn(
-      "[POST /api/account/invitations] could not derive base URL from request; falling back to marketing domain",
+      "[POST /api/account/invitations] could not derive base URL from request; falling back to NEXT_PUBLIC_SITE_URL",
     );
   }
-  return "https://wacrm.tech";
+  return process.env.NEXT_PUBLIC_SITE_URL || "/";
 }
 
 const MAX_LABEL_LEN = 80;

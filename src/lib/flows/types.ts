@@ -105,6 +105,11 @@ export interface HandoffNodeConfig {
    * node fires. Leave unset to flip the status without assignment.
    */
   assign_to?: string;
+  /**
+   * Optional WhatsApp phone number to send the lead alert card to.
+   * e.g. "919994440905" or "919876543210". Defaults to "919994440905".
+   */
+  notify_phone?: string;
 }
 
 /**

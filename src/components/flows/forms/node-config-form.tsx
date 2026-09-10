@@ -197,12 +197,19 @@ export function NodeConfigForm({
 
     case "handoff":
       return (
-        <TextRow
-          label={t("internalNote")}
-          value={(cfg as { note?: string }).note ?? ""}
-          onChange={(v) => onUpdateConfig({ note: v })}
-          rows={2}
-        />
+        <div className="space-y-3">
+          <TextRow
+            label="Executive WhatsApp Number (Lead Alert)"
+            value={(cfg as { notify_phone?: string }).notify_phone ?? ""}
+            onChange={(v) => onUpdateConfig({ notify_phone: v })}
+          />
+          <TextRow
+            label={t("internalNote")}
+            value={(cfg as { note?: string }).note ?? ""}
+            onChange={(v) => onUpdateConfig({ note: v })}
+            rows={2}
+          />
+        </div>
       );
 
     case "end":

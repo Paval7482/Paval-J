@@ -49,8 +49,13 @@ function LoginPageInner() {
     setError(null);
     setLoading(true);
 
+    const rawInput = email.trim().toLowerCase();
+    const cleanEmail = rawInput.includes("@")
+      ? rawInput
+      : `${rawInput.replace(/[^a-z0-9._-]/g, "")}@srilakshmiindustries.co.in`;
+
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: cleanEmail,
       password,
     });
 
@@ -104,15 +109,17 @@ function LoginPageInner() {
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="email" className="text-muted-foreground">
-                {t('emailLabel')}
+                Username or Email (Login ID)
               </Label>
               <Input
                 id="email"
-                type="email"
-                placeholder={t('emailPlaceholder')}
+                type="text"
+                placeholder="e.g. karthick or karthick@sli.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoCapitalize="none"
+                autoCorrect="off"
                 className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
               />
             </div>

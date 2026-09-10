@@ -1,7 +1,7 @@
 import { NextResponse, after } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption'
-import { getMediaUrl, downloadMedia } from '@/lib/whatsapp/meta-api'
+import { getMediaUrl, downloadMedia, sendTextMessage } from '@/lib/whatsapp/meta-api'
 import { mirrorInboundMedia } from '@/lib/whatsapp/mirror-inbound-media'
 import { normalizePhone } from '@/lib/whatsapp/phone-utils'
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe'
@@ -315,7 +315,8 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
           // Default ON: the column is NOT NULL DEFAULT TRUE, but a row
           // read before migration 039 lands would have it undefined,
           // and losing attachments is the failure mode worth avoiding.
-          config.mirror_inbound_media !== false
+          config.mirror_inbound_media !== false,
+          config.phone_number_id
         )
       }
     }
@@ -586,7 +587,8 @@ async function processMessage(
   accessToken: string,
   // Per-account opt-out for the inbound-media mirror (migration 039).
   // See parseMessageContent for what it turns off.
-  mirrorMedia: boolean
+  mirrorMedia: boolean,
+  phoneNumberId?: string
 ) {
   const senderPhone = normalizePhone(message.from)
   const contactName = contact.profile.name
@@ -894,6 +896,210 @@ async function processMessage(
     content_type: contentType,
     text: contentText,
   })
+
+  // Instant WhatsApp Lead Alert to Sales Executive (+91 99944 40905)
+  // Ensures admin/executive is notified immediately on new enquiry without waiting for customer button clicks.
+  await dispatchInstantLeadAlert({
+    accountId,
+    configOwnerUserId,
+    contactRecord,
+    contactProfileName: contactName,
+    senderPhone,
+    inboundText,
+    messageType: contentType,
+    accessToken,
+    phoneNumberId,
+    isFirstInboundMessage,
+    conversationId: conversation.id,
+  })
+}
+
+interface ParsedLeadInfo {
+  name?: string
+  phone?: string
+  state?: string
+  businessType?: string
+  isLeadForm: boolean
+}
+
+function parseMetaLeadText(text: string): ParsedLeadInfo {
+  let name: string | undefined
+  let phone: string | undefined
+  let state: string | undefined
+  let businessType: string | undefined
+
+  const nameMatch = text.match(/(?:full\s*name|name)\s*[:\-]\s*([^\n\r,]+)/i)
+  if (nameMatch && nameMatch[1]?.trim()) {
+    name = nameMatch[1].trim()
+  }
+
+  const phoneMatch = text.match(/(?:phone\s*(?:number)?|mobile|contact)\s*[:\-]\s*([^\n\r,]+)/i)
+  if (phoneMatch && phoneMatch[1]?.trim()) {
+    phone = phoneMatch[1].trim().replace(/\s+/g, '')
+  }
+
+  const stateMatch = text.match(/(?:state|city|location|place)\s*[:\-]\s*([^\n\r,]+)/i)
+  if (stateMatch && stateMatch[1]?.trim()) {
+    state = stateMatch[1].trim()
+  }
+
+  const bizMatch = text.match(/(?:business\s*type|requirement|product|interest)\s*[:\-]\s*([^\n\r,]+)/i)
+  if (bizMatch && bizMatch[1]?.trim()) {
+    businessType = bizMatch[1].trim()
+  }
+
+  const isLeadForm = Boolean(
+    name ||
+    businessType ||
+    /filled in your form/i.test(text) ||
+    /like to know more about your business/i.test(text) ||
+    /facebook/i.test(text) ||
+    /lead/i.test(text)
+  )
+
+  return { name, phone, state, businessType, isLeadForm }
+}
+
+async function dispatchInstantLeadAlert(args: {
+  accountId: string
+  configOwnerUserId: string
+  contactRecord: { id: string; name?: string; phone?: string }
+  contactProfileName: string
+  senderPhone: string
+  inboundText: string
+  messageType: string
+  accessToken: string
+  phoneNumberId?: string
+  isFirstInboundMessage: boolean
+  conversationId: string
+}) {
+  const {
+    accountId,
+    configOwnerUserId,
+    contactRecord,
+    contactProfileName,
+    senderPhone,
+    inboundText,
+    messageType,
+    accessToken,
+    phoneNumberId,
+    isFirstInboundMessage,
+    conversationId,
+  } = args
+
+  if (!phoneNumberId) return
+
+  const cleanCustomerPhone = senderPhone.replace(/[^0-9]/g, '')
+  const executivePhone = '919994440905'
+
+  // Never send alert if the customer messaging is the executive themselves
+  if (cleanCustomerPhone === executivePhone) return
+
+  const parsedLead = parseMetaLeadText(inboundText)
+
+  // 1. If Meta Lead Form contains customer's real name, update contact in DB
+  if (parsedLead.name) {
+    const currentName = contactRecord.name || ''
+    if (!currentName || currentName === contactRecord.phone || currentName === 'WhatsApp Customer' || currentName.startsWith('+')) {
+      await supabaseAdmin()
+        .from('contacts')
+        .update({ name: parsedLead.name })
+        .eq('id', contactRecord.id)
+      contactRecord.name = parsedLead.name
+    }
+  }
+
+  // 2. Ensure pipeline deal exists for Sri Lakshmi Industries
+  try {
+    const { data: existingDeals } = await supabaseAdmin()
+      .from('deals')
+      .select('id')
+      .eq('contact_id', contactRecord.id)
+      .limit(1)
+
+    if (!existingDeals || existingDeals.length === 0) {
+      await supabaseAdmin().from('deals').insert({
+        account_id: accountId,
+        user_id: configOwnerUserId,
+        contact_id: contactRecord.id,
+        title: `Murukku Machine Lead - ${parsedLead.name || contactRecord.name || cleanCustomerPhone}`,
+        value: 0,
+        stage: 'lead',
+        status: 'open',
+      })
+    }
+  } catch (dealErr) {
+    console.warn('[webhook] deal auto-create failed (non-fatal):', dealErr)
+  }
+
+  // 3. Determine if we should send instant WhatsApp alert
+  let isReturningLead = false
+  if (!isFirstInboundMessage) {
+    const { data: recentMsgs } = await supabaseAdmin()
+      .from('messages')
+      .select('created_at')
+      .eq('conversation_id', conversationId)
+      .eq('sender_type', 'customer')
+      .order('created_at', { ascending: false })
+      .limit(2)
+
+    if (recentMsgs && recentMsgs.length > 1) {
+      const previousMsgTime = new Date(recentMsgs[1].created_at).getTime()
+      const elapsedHours = (Date.now() - previousMsgTime) / (1000 * 60 * 60)
+      if (elapsedHours >= 2) {
+        isReturningLead = true
+      }
+    }
+  }
+
+  const shouldAlert = isFirstInboundMessage || parsedLead.isLeadForm || isReturningLead
+  if (!shouldAlert) return
+
+  // 4. Throttle check: Avoid duplicate alerts within 15 minutes for the same customer
+  try {
+    const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString()
+    const { data: recentAlert } = await supabaseAdmin()
+      .from('messages')
+      .select('id')
+      .eq('sender_type', 'bot')
+      .ilike('content_text', `%${cleanCustomerPhone}%`)
+      .gt('created_at', fifteenMinsAgo)
+      .limit(1)
+      .maybeSingle()
+
+    if (recentAlert) {
+      console.info(`[webhook] Lead alert throttled for customer ${cleanCustomerPhone} (alerted in last 15m)`)
+      return
+    }
+
+    const customerDisplayName = parsedLead.name || contactRecord.name || contactProfileName || `+${cleanCustomerPhone}`
+    const msgSnippet = (inboundText || `[${messageType}]`).trim().slice(0, 300)
+
+    let alertMsg = `🔥 *NEW ENQUIRY ALERT - Sri Lakshmi Industries*\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `👤 *Customer:* ${customerDisplayName}\n` +
+      `📱 *Phone:* +${cleanCustomerPhone}\n`
+    if (parsedLead.businessType) {
+      alertMsg += `🏭 *Requirement:* ${parsedLead.businessType}\n`
+    }
+    if (parsedLead.state) {
+      alertMsg += `📍 *Location:* ${parsedLead.state}\n`
+    }
+    alertMsg += `💬 *Message:* "${msgSnippet}"\n` +
+      `━━━━━━━━━━━━━━━━━━━━━━\n` +
+      `📞 *Call Customer:* +${cleanCustomerPhone}\n` +
+      `💬 *WhatsApp Chat:* https://wa.me/${cleanCustomerPhone}`
+
+    await sendTextMessage({
+      accessToken,
+      phoneNumberId,
+      to: executivePhone,
+      text: alertMsg,
+    })
+    console.info(`[webhook] Instant lead alert successfully sent to executive ${executivePhone} for customer ${cleanCustomerPhone}`)
+  } catch (alertErr) {
+    console.error('[webhook] Failed to send instant lead alert to executive:', alertErr)
+  }
 }
 
 async function parseMessageContent(

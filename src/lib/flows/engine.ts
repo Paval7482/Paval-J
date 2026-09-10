@@ -39,6 +39,8 @@ import {
   engineSendMedia,
   engineSendText,
 } from "./meta-send";
+import { sendTextMessage } from "@/lib/whatsapp/meta-api";
+import { decrypt } from "@/lib/whatsapp/encryption";
 import { decideFallback, resolveFallbackPolicy } from "./fallback";
 import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
 import { removeContactTag } from "@/lib/contacts/tag-write";
@@ -57,6 +59,7 @@ import {
   type SendMessageNodeConfig,
   type SetTagNodeConfig,
   type StartNodeConfig,
+  type HandoffNodeConfig,
   type KeywordTriggerConfig,
 } from "./types";
 
@@ -469,7 +472,7 @@ async function executeHandoff(
   run: FlowRunRow,
   node: FlowNodeRow,
 ): Promise<void> {
-  const cfg = node.config as { assign_to?: string; note?: string };
+  const cfg = node.config as unknown as HandoffNodeConfig;
   const convUpdate: Record<string, unknown> = {
     status: "pending",
     updated_at: new Date().toISOString(),
@@ -485,6 +488,49 @@ async function executeHandoff(
     note: cfg.note ?? null,
     assigned_to: cfg.assign_to ?? null,
   });
+
+  // Automated Lead Alert to Executive WhatsApp (919994440905)
+  try {
+    const [{ data: contact }, { data: waCfg }] = await Promise.all([
+      db.from("contacts").select("name, phone").eq("id", run.contact_id).maybeSingle(),
+      db.from("whatsapp_config").select("access_token, phone_number_id").limit(1).maybeSingle(),
+    ]);
+
+    if (waCfg && contact && contact.phone) {
+      const rawToken = decrypt(waCfg.access_token);
+      const cleanPhone = contact.phone.replace(/[^0-9]/g, "");
+      const leadNote = cfg.note || "Murukku Machine Lead";
+
+      // Collect customer selections made during the flow
+      const selections = Object.entries(run.vars || {})
+        .filter(([k, v]) => !k.startsWith("_") && typeof v === "string" && !k.startsWith("submit"))
+        .map(([, v]) => `• ${v}`)
+        .join("\n");
+
+      let alertMsg = `🔥 *NEW LEAD ALERT - Sri Lakshmi Industries*\n━━━━━━━━━━━━━━━━━━━━━━\n👤 *Customer:* ${contact.name || "WhatsApp Customer"}\n📱 *Phone:* +${cleanPhone}\n`;
+      if (selections) {
+        alertMsg += `📋 *Requirements Selected:*\n${selections}\n`;
+      }
+      alertMsg += `📝 *Details:* ${leadNote}\n━━━━━━━━━━━━━━━━━━━━━━\n👉 *Click to Call / Chat:* https://wa.me/${cleanPhone}`;
+
+      let targetPhone = (cfg.notify_phone || "").replace(/[^0-9]/g, "");
+      if (targetPhone.length === 10) {
+        targetPhone = "91" + targetPhone;
+      }
+
+      if (targetPhone) {
+        await sendTextMessage({
+          accessToken: rawToken,
+          phoneNumberId: waCfg.phone_number_id,
+          to: targetPhone,
+          text: alertMsg,
+        });
+      }
+    }
+  } catch (alertErr) {
+    console.error("[Flows Engine] Failed to send executive lead alert:", alertErr);
+  }
+
   await endRun(db, run.id, "handed_off", "handoff_node");
 }
 
@@ -967,7 +1013,30 @@ async function handleReplyForActiveRun(
     (currentNode.node_type === "send_buttons" ||
       currentNode.node_type === "send_list")
   ) {
-    matched = matchReplyId(currentNode, message.reply_id);
+    let selectedTitle = message.reply_id;
+    if (currentNode.node_type === "send_buttons") {
+      const cfg = currentNode.config as unknown as SendButtonsNodeConfig;
+      const hit = cfg.buttons?.find((b) => b.reply_id === message.reply_id);
+      if (hit) {
+        matched = hit.next_node_key ?? null;
+        selectedTitle = hit.title;
+      }
+    } else if (currentNode.node_type === "send_list") {
+      const cfg = currentNode.config as unknown as SendListNodeConfig;
+      for (const section of cfg.sections ?? []) {
+        const hit = section.rows?.find((r) => r.reply_id === message.reply_id);
+        if (hit) {
+          matched = hit.next_node_key ?? null;
+          selectedTitle = hit.title;
+          break;
+        }
+      }
+    }
+    if (matched) {
+      const newVars = { ...run.vars, [currentNode.node_key]: selectedTitle };
+      await db.from("flow_runs").update({ vars: newVars }).eq("id", run.id);
+      run.vars = newVars;
+    }
   } else if (
     message.kind === "text" &&
     currentNode.node_type === "collect_input"

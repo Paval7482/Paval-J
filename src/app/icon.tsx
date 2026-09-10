@@ -22,22 +22,17 @@ export default function Icon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#7c3aed", // primary (Hostinger-aligned purple)
+          background: "#0f172a",
+          border: "1.5px solid #38bdf8",
           borderRadius: 6,
+          color: "#38bdf8",
+          fontWeight: 800,
+          fontSize: 12,
+          fontFamily: "system-ui, sans-serif",
+          letterSpacing: "-0.5px",
         }}
       >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#ffffff"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
+        SLI
       </div>
     ),
     { ...size },

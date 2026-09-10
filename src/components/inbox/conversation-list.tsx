@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAuth } from "@/hooks/use-auth";
 
 interface ConversationListProps {
   activeConversationId: string | null;
@@ -42,9 +43,7 @@ const STATUS_COLORS: Record<ConversationStatus, string> = {
   closed: "bg-muted-foreground",
 };
 
-
-
-type InboxFilter = ConversationStatus | "all" | "unread";
+type InboxFilter = ConversationStatus | "all" | "unread" | "assigned";
 
 export function ConversationList({
   activeConversationId,
@@ -54,17 +53,32 @@ export function ConversationList({
   resyncToken = 0,
 }: ConversationListProps) {
   const t = useTranslations("Inbox.conversationList");
+  const { user, accountRole } = useAuth();
   
-  const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(() => [
-    { label: t("filterAll"), value: "all" },
-    { label: t("filterUnread"), value: "unread" },
-    { label: t("filterOpen"), value: "open" },
-    { label: t("filterPending"), value: "pending" },
-    { label: t("filterClosed"), value: "closed" },
-  ], [t]);
+  const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(() => {
+    if (accountRole === "agent") {
+      return [
+        { label: "Assigned to Me", value: "assigned" },
+        { label: "All Leads", value: "all" },
+        { label: t("filterUnread"), value: "unread" },
+        { label: t("filterOpen"), value: "open" },
+        { label: t("filterPending"), value: "pending" },
+        { label: t("filterClosed"), value: "closed" },
+      ];
+    }
+    return [
+      { label: t("filterAll"), value: "all" },
+      { label: t("filterUnread"), value: "unread" },
+      { label: t("filterOpen"), value: "open" },
+      { label: t("filterPending"), value: "pending" },
+      { label: t("filterClosed"), value: "closed" },
+    ];
+  }, [t, accountRole]);
 
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<InboxFilter>("all");
+  const [filter, setFilter] = useState<InboxFilter>(
+    accountRole === "agent" ? "assigned" : "all"
+  );
   const [loading, setLoading] = useState(true);
   // Contact-based filters (issue #272). Tags use OR logic (a conversation
   // matches if its contact carries any selected tag), consistent with
@@ -161,7 +175,9 @@ export function ConversationList({
   const filtered = useMemo(() => {
     let result = conversations;
 
-    if (filter === "unread") {
+    if (filter === "assigned") {
+      result = result.filter((c) => c.assigned_agent_id === user?.id);
+    } else if (filter === "unread") {
       result = result.filter((c) => c.unread_count > 0);
     } else if (filter !== "all") {
       result = result.filter((c) => c.status === filter);
@@ -188,7 +204,7 @@ export function ConversationList({
     }
 
     return result;
-  }, [conversations, filter, search, selectedTagIds, selectedCompany]);
+  }, [conversations, filter, search, selectedTagIds, selectedCompany, user]);
 
   const toggleTag = useCallback((id: string) => {
     setSelectedTagIds((prev) =>
