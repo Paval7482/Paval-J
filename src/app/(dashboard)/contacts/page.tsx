@@ -15,6 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -49,19 +50,27 @@ import {
   SlidersHorizontal,
   Filter,
   X,
+  MessageSquare,
+  Phone,
+  MapPin,
+  Activity,
+  Edit3,
 } from 'lucide-react';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { ImportModal } from '@/components/contacts/import-modal';
 import { CustomFieldsManager } from '@/components/contacts/custom-fields-manager';
+import { CustomerProfileModal } from '@/components/contacts/customer-profile-modal';
 import { useCan } from '@/hooks/use-can';
 import { GatedButton } from '@/components/ui/gated-button';
 import { useTranslations } from 'next-intl';
+import type { CustomerProfileData } from '@/lib/contacts/customer-profile';
 
 const PAGE_SIZE = 25;
 
-interface ContactWithTags extends Contact {
+interface ContactWithProfile extends Contact {
   tags?: Tag[];
+  profile?: CustomerProfileData;
 }
 
 export default function ContactsPage() {
@@ -70,12 +79,11 @@ export default function ContactsPage() {
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
 
-  const [contacts, setContacts] = useState<ContactWithTags[]>([]);
+  const [contacts, setContacts] = useState<ContactWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
-  // Tag filter — contacts shown must have ANY of these tags (OR).
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
   // Modals
@@ -90,17 +98,16 @@ export default function ContactsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Bulk selection (page-scoped — only the loaded rows are selectable)
+  // Customer Profile modal
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [selectedContactForProfile, setSelectedContactForProfile] = useState<Contact | null>(null);
+
+  // Bulk selection
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
-  // All tags for display
+  // Tags map
   const [tagsMap, setTagsMap] = useState<Record<string, Tag>>({});
-
-  // Guards against out-of-order fetch responses: each fetchContacts run
-  // claims a sequence number and only the latest is allowed to commit its
-  // results. Without this, rapidly toggling tag filters could let a slower
-  // earlier request resolve last and render stale rows.
   const fetchSeq = useRef(0);
 
   const fetchTags = useCallback(async () => {
@@ -109,8 +116,6 @@ export default function ContactsPage() {
       const map: Record<string, Tag> = {};
       data.forEach((t) => (map[t.id] = t));
       setTagsMap(map);
-      // Drop any filter selections whose tag no longer exists (e.g. a tag
-      // deleted elsewhere) so it can't linger invisibly in the query.
       setSelectedTagIds((prev) => {
         const pruned = prev.filter((id) => map[id]);
         return pruned.length === prev.length ? prev : pruned;
@@ -121,9 +126,6 @@ export default function ContactsPage() {
   const fetchContacts = useCallback(async () => {
     const seq = ++fetchSeq.current;
     setLoading(true);
-    // The visible rows are about to change — drop any selection that
-    // referred to the old page/search results so the bulk bar can't
-    // act on rows the user can no longer see.
     setSelected(new Set());
 
     const from = page * PAGE_SIZE;
@@ -134,17 +136,13 @@ export default function ContactsPage() {
     let count: number;
 
     if (selectedTagIds.length > 0) {
-      // Tag filter active — resolve it server-side (join + distinct +
-      // windowed total count + pagination) so a tag covering many
-      // contacts can't silently truncate the result or overflow an IN
-      // clause. See migration 025_filter_contacts_by_tags.
       const { data, error } = await supabase.rpc('filter_contacts_by_tags', {
         p_tag_ids: selectedTagIds,
         p_search: term || null,
         p_limit: PAGE_SIZE,
         p_offset: from,
       });
-      if (seq !== fetchSeq.current) return; // superseded by a newer fetch
+      if (seq !== fetchSeq.current) return;
       if (error) {
         toast.error(t('toastFailedLoad'));
         setLoading(false);
@@ -166,7 +164,7 @@ export default function ContactsPage() {
       }
 
       const { data, count: exactCount, error } = await query;
-      if (seq !== fetchSeq.current) return; // superseded by a newer fetch
+      if (seq !== fetchSeq.current) return;
       if (error) {
         toast.error(t('toastFailedLoad'));
         setLoading(false);
@@ -184,42 +182,70 @@ export default function ContactsPage() {
       return;
     }
 
-    // Fetch tags for these contacts
     const contactIds = contactRows.map((c) => c.id);
-    const { data: contactTags } = await supabase
-      .from('contact_tags')
-      .select('contact_id, tag_id')
-      .in('contact_id', contactIds);
-    if (seq !== fetchSeq.current) return; // superseded by a newer fetch
+
+    // Fetch tags & custom values in parallel
+    const [contactTagsRes, customFieldsRes, customValuesRes] = await Promise.all([
+      supabase.from('contact_tags').select('contact_id, tag_id').in('contact_id', contactIds),
+      supabase.from('custom_fields').select('id, field_name'),
+      supabase.from('contact_custom_values').select('*').in('contact_id', contactIds),
+    ]);
+
+    if (seq !== fetchSeq.current) return;
 
     const tagsByContact: Record<string, string[]> = {};
-    contactTags?.forEach((ct) => {
+    contactTagsRes.data?.forEach((ct) => {
       if (!tagsByContact[ct.contact_id]) tagsByContact[ct.contact_id] = [];
       tagsByContact[ct.contact_id].push(ct.tag_id);
     });
 
-    const enriched: ContactWithTags[] = contactRows.map((c) => ({
+    const fieldMap: Record<string, string> = {};
+    customFieldsRes.data?.forEach((f) => {
+      fieldMap[f.id] = f.field_name;
+    });
+
+    const profilesByContact: Record<string, CustomerProfileData> = {};
+    contactRows.forEach((c) => {
+      profilesByContact[c.id] = {
+        name: c.name || '',
+        phone: c.phone || '',
+        email: c.email || '',
+        company: c.company || '',
+        businessType: 'Murukku Business',
+        capacity: '50 - 100 Kg/Day',
+        state: 'Tamil Nadu',
+        district: '',
+        leadStatus: 'In Follow-up',
+      };
+    });
+
+    customValuesRes.data?.forEach((v) => {
+      const fName = fieldMap[v.custom_field_id];
+      if (!fName || !profilesByContact[v.contact_id]) return;
+
+      if (fName === 'Alternative Phone') profilesByContact[v.contact_id].altPhone = v.value;
+      if (fName === 'State') profilesByContact[v.contact_id].state = v.value;
+      if (fName === 'District') profilesByContact[v.contact_id].district = v.value;
+      if (fName === 'Business Type') profilesByContact[v.contact_id].businessType = v.value;
+      if (fName === 'Production Capacity') profilesByContact[v.contact_id].capacity = v.value;
+      if (fName === 'Lead Status') profilesByContact[v.contact_id].leadStatus = v.value;
+    });
+
+    const enriched: ContactWithProfile[] = contactRows.map((c) => ({
       ...c,
-      tags: (tagsByContact[c.id] ?? [])
-        .map((tid) => tagsMap[tid])
-        .filter(Boolean),
+      tags: (tagsByContact[c.id] ?? []).map((tid) => tagsMap[tid]).filter(Boolean),
+      profile: profilesByContact[c.id],
     }));
 
     setContacts(enriched);
     setLoading(false);
   }, [supabase, page, search, selectedTagIds, tagsMap, t]);
 
-  // Load-once-on-mount-ish data fetches. Each setter inside runs
-  // inside an async promise completion (Supabase await), not
-  // synchronously in the effect body, so the cascade the lint rule
-  // warns about doesn't apply here.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchTags();
   }, [fetchTags]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchContacts();
   }, [fetchContacts]);
 
@@ -318,8 +344,6 @@ export default function ContactsPage() {
   const hasNext = page < totalPages - 1;
   const hasPrev = page > 0;
 
-  // Tag filter helpers. Every change resets to page 0 — the result set
-  // shrinks/grows so page N may no longer be valid (mirrors the search box).
   const allTags = Object.values(tagsMap).sort((a, b) =>
     a.name.localeCompare(b.name)
   );
@@ -327,9 +351,7 @@ export default function ContactsPage() {
 
   function toggleTagFilter(tagId: string) {
     setSelectedTagIds((prev) =>
-      prev.includes(tagId)
-        ? prev.filter((id) => id !== tagId)
-        : [...prev, tagId]
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
     );
     setPage(0);
   }
@@ -344,7 +366,12 @@ export default function ContactsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
+            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+              Customer Profiles & Leads
+            </Badge>
+          </div>
           <p className="text-sm text-muted-foreground mt-1">
             {totalCount > 0 ? t('subtitle', { count: totalCount }) : t('subtitleZero')}
           </p>
@@ -374,10 +401,10 @@ export default function ContactsPage() {
             canAct={canEdit}
             gateReason="add or import contacts"
             onClick={openAddForm}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
           >
             <Plus className="size-4" />
-            {t('addContactBtn')}
+            Add Customer Profile
           </GatedButton>
         </div>
       </div>
@@ -391,11 +418,9 @@ export default function ContactsPage() {
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
-                // Reset pagination when the query changes — the result
-                // set shrinks/grows, page N may no longer be valid.
                 setPage(0);
               }}
-              placeholder={t('searchPlaceholder')}
+              placeholder="Search by customer name, phone, email..."
               className="pl-8 bg-card border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
@@ -462,7 +487,6 @@ export default function ContactsPage() {
           </Popover>
         </div>
 
-        {/* Active tag-filter chips */}
         {selectedTagIds.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
             {selectedTagIds.map((id) => {
@@ -527,11 +551,11 @@ export default function ContactsPage() {
         </div>
       )}
 
-      {/* Table */}
+      {/* Main Customers Table with Rich Profile Columns */}
       <div className="rounded-lg border border-border overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="border-border hover:bg-transparent">
+            <TableRow className="border-border hover:bg-transparent bg-muted/30">
               <TableHead className="w-10">
                 <Checkbox
                   checked={allOnPageSelected}
@@ -541,19 +565,20 @@ export default function ContactsPage() {
                   aria-label="Select all contacts on this page"
                 />
               </TableHead>
-              <TableHead className="text-muted-foreground">{t('tableColumns.name')}</TableHead>
-              <TableHead className="text-muted-foreground">{t('tableColumns.phone')}</TableHead>
-              <TableHead className="text-muted-foreground hidden md:table-cell">{t('tableColumns.email')}</TableHead>
-              <TableHead className="text-muted-foreground hidden lg:table-cell">{t('tableColumns.company')}</TableHead>
-              <TableHead className="text-muted-foreground hidden md:table-cell">{t('tableColumns.tags')}</TableHead>
-              <TableHead className="text-muted-foreground hidden lg:table-cell">{t('tableColumns.createdAt')}</TableHead>
-              <TableHead className="text-muted-foreground w-12" />
+              <TableHead className="text-muted-foreground font-semibold">Customer Name</TableHead>
+              <TableHead className="text-muted-foreground font-semibold">Phone & Alt No.</TableHead>
+              <TableHead className="text-muted-foreground font-semibold">Location</TableHead>
+              <TableHead className="text-muted-foreground font-semibold">Business Type</TableHead>
+              <TableHead className="text-muted-foreground font-semibold">Capacity</TableHead>
+              <TableHead className="text-muted-foreground font-semibold">Lead Status</TableHead>
+              <TableHead className="text-muted-foreground font-semibold text-center">Quick Call / WA</TableHead>
+              <TableHead className="text-muted-foreground text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow className="border-border">
-                <TableCell colSpan={8} className="text-center py-12">
+                <TableCell colSpan={9} className="text-center py-12">
                   <div className="flex flex-col items-center gap-2">
                     <Loader2 className="size-6 animate-spin text-primary" />
                     <p className="text-sm text-muted-foreground">{t('loading')}</p>
@@ -562,13 +587,11 @@ export default function ContactsPage() {
               </TableRow>
             ) : contacts.length === 0 ? (
               <TableRow className="border-border">
-                <TableCell colSpan={8} className="text-center py-12">
+                <TableCell colSpan={9} className="text-center py-12">
                   <div className="flex flex-col items-center gap-2">
                     <Users className="size-8 text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">
-                      {hasActiveFilters
-                        ? t('noContactsMatch')
-                        : t('noContactsYet')}
+                      {hasActiveFilters ? t('noContactsMatch') : t('noContactsYet')}
                     </p>
                     {!hasActiveFilters && (
                       <GatedButton
@@ -587,107 +610,173 @@ export default function ContactsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              contacts.map((contact) => (
-                <TableRow
-                  key={contact.id}
-                  className="border-border hover:bg-muted/50 cursor-pointer"
-                  onClick={() => openDetail(contact.id)}
-                >
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      checked={selected.has(contact.id)}
-                      onCheckedChange={() => toggleSelect(contact.id)}
-                      aria-label={`Select ${contact.name || contact.phone}`}
-                    />
-                  </TableCell>
-                  <TableCell className="text-foreground font-medium">
-                    {contact.name || <span className="text-muted-foreground italic">{t('unnamed')}</span>}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground font-mono text-xs">
-                    {contact.phone}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground hidden md:table-cell text-sm">
-                    {contact.email || <span className="text-muted-foreground">-</span>}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground hidden lg:table-cell text-sm">
-                    {contact.company || <span className="text-muted-foreground">-</span>}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <div className="flex flex-wrap gap-1">
-                      {contact.tags && contact.tags.length > 0 ? (
-                        contact.tags.slice(0, 3).map((tag) => (
-                          <span
-                            key={tag.id}
-                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
-                            style={{
-                              backgroundColor: tag.color + '20',
-                              color: tag.color,
-                            }}
-                          >
-                            {tag.name}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-muted-foreground text-xs">-</span>
-                      )}
-                      {contact.tags && contact.tags.length > 3 && (
-                        <span className="text-[10px] text-muted-foreground">
-                          +{contact.tags.length - 3}
+              contacts.map((contact) => {
+                const cleanPhone = contact.phone.replace(/\D/g, '');
+                const profile = contact.profile;
+
+                return (
+                  <TableRow
+                    key={contact.id}
+                    className="border-border hover:bg-muted/50 cursor-pointer transition-colors"
+                    onClick={() => openDetail(contact.id)}
+                  >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selected.has(contact.id)}
+                        onCheckedChange={() => toggleSelect(contact.id)}
+                        aria-label={`Select ${contact.name || contact.phone}`}
+                      />
+                    </TableCell>
+
+                    {/* Customer Name */}
+                    <TableCell className="text-foreground font-semibold">
+                      <div className="flex flex-col">
+                        <span>{contact.name || <span className="text-muted-foreground italic font-normal">{t('unnamed')}</span>}</span>
+                        {contact.company && (
+                          <span className="text-xs text-muted-foreground font-normal">{contact.company}</span>
+                        )}
+                      </div>
+                    </TableCell>
+
+                    {/* Phone & Alt Phone */}
+                    <TableCell>
+                      <div className="flex flex-col font-mono text-xs">
+                        <span className="text-foreground font-medium">{contact.phone}</span>
+                        {profile?.altPhone && (
+                          <span className="text-muted-foreground text-[11px]">Alt: {profile.altPhone}</span>
+                        )}
+                      </div>
+                    </TableCell>
+
+                    {/* Location */}
+                    <TableCell className="text-xs">
+                      <div className="flex items-center gap-1 text-foreground">
+                        <MapPin className="h-3 w-3 text-primary shrink-0" />
+                        <span>
+                          {profile?.district
+                            ? `${profile.district}, ${profile.state || 'TN'}`
+                            : profile?.state || 'Tamil Nadu'}
                         </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-xs hidden lg:table-cell">
-                    {new Date(contact.created_at).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            className="text-muted-foreground hover:text-foreground"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        }
+                      </div>
+                    </TableCell>
+
+                    {/* Business Type */}
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className="text-[11px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
                       >
-                        <MoreHorizontal className="size-4" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="end"
-                        className="bg-popover border-border"
+                        {profile?.businessType || 'Murukku Business'}
+                      </Badge>
+                    </TableCell>
+
+                    {/* Production Capacity */}
+                    <TableCell className="text-xs font-medium text-foreground">
+                      {profile?.capacity || '50 - 100 Kg/Day'}
+                    </TableCell>
+
+                    {/* Lead Status */}
+                    <TableCell>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                          profile?.leadStatus === 'Booking / Closed Won'
+                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                            : profile?.leadStatus === 'Quotation Sent'
+                            ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
+                            : profile?.leadStatus === 'Lost / Not Interested'
+                            ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                            : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                        }`}
                       >
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditForm(contact);
-                          }}
-                          className="text-popover-foreground focus:bg-muted focus:text-foreground"
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            profile?.leadStatus === 'Booking / Closed Won'
+                              ? 'bg-emerald-500'
+                              : profile?.leadStatus === 'Quotation Sent'
+                              ? 'bg-blue-500'
+                              : 'bg-amber-500'
+                          }`}
+                        />
+                        {profile?.leadStatus || 'In Follow-up'}
+                      </span>
+                    </TableCell>
+
+                    {/* 1-Click WhatsApp & Call */}
+                    <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <a
+                          href={`https://wa.me/${cleanPhone}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-full bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors"
+                          title="Chat on WhatsApp"
                         >
-                          <Pencil className="size-4" />
-                          {t('editAction')}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator className="bg-border" />
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            confirmDelete(contact);
-                          }}
+                          <MessageSquare className="h-3.5 w-3.5" />
+                        </a>
+                        <a
+                          href={`tel:${contact.phone}`}
+                          className="p-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                          title="Call Customer"
                         >
-                          <Trash2 className="size-4" />
-                          {t('deleteAction')}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
+                          <Phone className="h-3.5 w-3.5" />
+                        </a>
+                      </div>
+                    </TableCell>
+
+                    {/* Actions */}
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedContactForProfile(contact);
+                            setProfileModalOpen(true);
+                          }}
+                          className="h-7 text-xs px-2 gap-1 border-border text-foreground hover:bg-primary hover:text-primary-foreground"
+                        >
+                          <Edit3 className="h-3 w-3" />
+                          <span>Entry</span>
+                        </Button>
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                className="text-muted-foreground hover:text-foreground h-7 w-7"
+                              />
+                            }
+                          >
+                            <MoreHorizontal className="size-4" />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="bg-popover border-border"
+                          >
+                            <DropdownMenuItem
+                              onClick={() => openEditForm(contact)}
+                              className="text-popover-foreground focus:bg-muted focus:text-foreground"
+                            >
+                              <Pencil className="size-4" />
+                              Edit Full Details
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator className="bg-border" />
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => confirmDelete(contact)}
+                            >
+                              <Trash2 className="size-4" />
+                              {t('deleteAction')}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -700,7 +789,7 @@ export default function ContactsPage() {
             {t('showingPagination', {
               start: page * PAGE_SIZE + 1,
               end: Math.min((page + 1) * PAGE_SIZE, totalCount),
-              total: totalCount
+              total: totalCount,
             })}
           </p>
           <div className="flex items-center gap-1">
@@ -745,6 +834,14 @@ export default function ContactsPage() {
         }}
       />
 
+      {/* Customer Profile Modal for Fast Call Entry */}
+      <CustomerProfileModal
+        open={profileModalOpen}
+        onOpenChange={setProfileModalOpen}
+        contact={selectedContactForProfile}
+        onSaved={fetchContacts}
+      />
+
       {/* Contact Detail Sheet */}
       <ContactDetailView
         open={detailOpen}
@@ -760,7 +857,7 @@ export default function ContactsPage() {
         onImported={fetchContacts}
       />
 
-      {/* Custom Fields Manager (admin+) */}
+      {/* Custom Fields Manager */}
       {canEditSettings && (
         <CustomFieldsManager
           open={customFieldsOpen}
@@ -788,37 +885,6 @@ export default function ContactsPage() {
             <Button
               variant="destructive"
               onClick={handleDelete}
-              disabled={deleting}
-            >
-              {deleting && <Loader2 className="size-4 animate-spin" />}
-              {t('deleteBtn')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Bulk Delete Confirmation */}
-      <Dialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
-        <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-popover-foreground">
-              {t('deleteBulkTitle')}
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              {t('deleteBulkDesc', { count: selected.size })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="bg-popover border-border">
-            <Button
-              variant="outline"
-              onClick={() => setBulkDeleteOpen(false)}
-              className="border-border text-muted-foreground hover:bg-muted"
-            >
-              {t('cancel')}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleBulkDelete}
               disabled={deleting}
             >
               {deleting && <Loader2 className="size-4 animate-spin" />}

@@ -15,11 +15,24 @@ import {
   DollarSign,
   StickyNote,
   Plus,
+  Edit3,
+  MapPin,
+  Building,
+  Activity,
+  Sparkles,
+  PhoneCall,
+  UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { useTranslations } from "next-intl";
+import { CustomerProfileModal } from "@/components/contacts/customer-profile-modal";
+import {
+  getCustomerProfile,
+  type CustomerProfileData,
+} from "@/lib/contacts/customer-profile";
 
 interface ContactSidebarProps {
   contact: Contact | null;
@@ -31,19 +44,22 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
 
   const { accountId } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [copiedAlt, setCopiedAlt] = useState(false);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [notes, setNotes] = useState<ContactNote[]>([]);
   const [tags, setTags] = useState<(Tag & { contact_tag_id: string })[]>([]);
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [profileData, setProfileData] = useState<CustomerProfileData | null>(null);
 
   const fetchContactData = useCallback(async () => {
     if (!contact) return;
 
     const supabase = createClient();
 
-    // Fetch deals, notes, and tags in parallel
-    const [dealsRes, notesRes, tagsRes] = await Promise.all([
+    // Fetch deals, notes, tags, and profile in parallel
+    const [dealsRes, notesRes, tagsRes, profileRes] = await Promise.all([
       supabase
         .from("deals")
         .select("*, stage:pipeline_stages(*)")
@@ -58,6 +74,7 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
         .from("contact_tags")
         .select("id, tag_id, tags(*)")
         .eq("contact_id", contact.id),
+      getCustomerProfile(supabase, contact.id),
     ]);
 
     if (dealsRes.data) setDeals(dealsRes.data);
@@ -71,12 +88,10 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
         }));
       setTags(mapped);
     }
+    if (profileRes) setProfileData(profileRes);
   }, [contact]);
 
-  // Load on contact change. setContactData/setTags run inside async
-  // Supabase callbacks, not synchronously in the effect body.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchContactData();
   }, [fetchContactData]);
 
@@ -85,10 +100,14 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
     await navigator.clipboard.writeText(contact.phone);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    // Dep is the whole `contact` object (not `contact?.phone`) so the
-    // React Compiler's inference agrees with the manual dep list —
-    // fixes the `preserve-manual-memoization` lint error.
   }, [contact]);
+
+  const handleCopyAltPhone = useCallback(async () => {
+    if (!profileData?.altPhone) return;
+    await navigator.clipboard.writeText(profileData.altPhone);
+    setCopiedAlt(true);
+    setTimeout(() => setCopiedAlt(false), 2000);
+  }, [profileData?.altPhone]);
 
   const handleAddNote = useCallback(async () => {
     if (!contact || !newNote.trim()) return;
@@ -121,69 +140,199 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
 
   if (!contact) {
     return (
-      <div className="flex h-full w-70 items-center justify-center border-l border-border bg-card">
+      <div className="flex h-full w-80 items-center justify-center border-l border-border bg-card">
         <p className="text-sm text-muted-foreground">{tThread("selectConversation")}</p>
       </div>
     );
   }
 
-  const displayName = contact.name || contact.phone;
+  const displayName = profileData?.name || contact.name || contact.phone;
   const initials = displayName.charAt(0).toUpperCase();
 
   return (
-    <div className="flex h-full w-70 flex-col border-l border-border bg-card">
+    <div className="flex h-full w-80 flex-col border-l border-border bg-card">
       <ScrollArea className="flex-1">
-        <div className="p-4">
-          {/* Contact Info */}
-          <div className="flex flex-col items-center text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted text-lg font-semibold text-foreground">
-              {contact.avatar_url ? (
-                <img
-                  src={contact.avatar_url}
-                  alt={displayName}
-                  className="h-16 w-16 rounded-full object-cover"
-                />
-              ) : (
-                initials
-              )}
+        <div className="p-4 space-y-4">
+          {/* Customer Profile Header Card */}
+          <div className="rounded-xl border border-border bg-muted/30 p-3.5 shadow-sm text-center relative overflow-hidden">
+            <div className="absolute top-2 right-2">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setProfileModalOpen(true)}
+                title="Edit Customer Profile"
+                className="h-7 w-7 text-primary hover:bg-primary/10"
+              >
+                <Edit3 className="h-3.5 w-3.5" />
+              </Button>
             </div>
-            <h3 className="mt-3 text-sm font-semibold text-foreground">
-              {displayName}
-            </h3>
-            {contact.company && (
-              <p className="text-xs text-muted-foreground">{contact.company}</p>
+
+            <div className="flex flex-col items-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary text-base font-bold">
+                {contact.avatar_url ? (
+                  <img
+                    src={contact.avatar_url}
+                    alt={displayName}
+                    className="h-14 w-14 rounded-full object-cover"
+                  />
+                ) : (
+                  initials
+                )}
+              </div>
+              <h3 className="mt-2 text-sm font-bold text-foreground truncate max-w-[200px]">
+                {displayName}
+              </h3>
+              {profileData?.company && (
+                <p className="text-xs text-muted-foreground">{profileData.company}</p>
+              )}
+
+              {/* Status Badge */}
+              <div className="mt-2">
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-xs font-semibold px-2.5 py-0.5",
+                    profileData?.leadStatus === "Booking / Closed Won"
+                      ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                      : profileData?.leadStatus === "Quotation Sent"
+                      ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                      : profileData?.leadStatus === "Lost / Not Interested"
+                      ? "bg-rose-500/10 text-rose-600 border-rose-500/30"
+                      : "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                  )}
+                >
+                  {profileData?.leadStatus || "New Enquiry"}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Quick Edit Profile Button */}
+            <div className="mt-3">
+              <Button
+                size="sm"
+                onClick={() => setProfileModalOpen(true)}
+                className="w-full h-8 text-xs font-semibold bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-all gap-1.5"
+              >
+                <Edit3 className="h-3.5 w-3.5" />
+                Executive Call Entry
+              </Button>
+            </div>
+          </div>
+
+          {/* Customer Requirement Profile Details */}
+          <div className="rounded-xl border border-border bg-card p-3 space-y-2.5 text-xs">
+            <div className="flex items-center justify-between font-semibold text-muted-foreground uppercase text-[11px] pb-1 border-b border-border">
+              <span>Requirement Details</span>
+              <span className="text-primary cursor-pointer hover:underline" onClick={() => setProfileModalOpen(true)}>Edit</span>
+            </div>
+
+            {/* Business Type */}
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground flex items-center gap-1.5">
+                <Activity className="h-3.5 w-3.5 text-amber-500" />
+                Business:
+              </span>
+              <span className="font-semibold text-foreground">
+                {profileData?.businessType || "Murukku Business"}
+              </span>
+            </div>
+
+            {/* Production Capacity */}
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-emerald-500" />
+                Capacity:
+              </span>
+              <span className="font-semibold text-foreground">
+                {profileData?.capacity || "50 - 100 Kg/Day"}
+              </span>
+            </div>
+
+            {/* State & District */}
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 text-primary" />
+                Location:
+              </span>
+              <span className="font-semibold text-foreground">
+                {profileData?.district
+                  ? `${profileData.district}, ${profileData.state || 'TN'}`
+                  : profileData?.state || "Tamil Nadu"}
+              </span>
+            </div>
+
+            {/* Alternative Phone */}
+            {profileData?.altPhone && (
+              <div className="flex items-center justify-between pt-1 border-t border-border">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <PhoneCall className="h-3.5 w-3.5 text-blue-500" />
+                  Alt Phone:
+                </span>
+                <div className="flex items-center gap-1 font-mono text-foreground">
+                  <span>{profileData.altPhone}</span>
+                  <button
+                    onClick={handleCopyAltPhone}
+                    className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground"
+                    title="Copy alternative phone"
+                  >
+                    {copiedAlt ? (
+                      <Check className="h-3 w-3 text-primary" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                  </button>
+                  <a
+                    href={`tel:${profileData.altPhone}`}
+                    className="p-1 hover:bg-muted rounded text-primary"
+                    title="Call alternative phone"
+                  >
+                    <Phone className="h-3 w-3" />
+                  </a>
+                </div>
+              </div>
             )}
           </div>
 
-          {/* Phone */}
-          <div className="mt-4 space-y-2">
-            <button
-              onClick={handleCopyPhone}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted"
-            >
-              <Phone className="h-4 w-4 text-muted-foreground" />
-              <span className="flex-1 text-left">{contact.phone}</span>
-              {copied ? (
-                <Check className="h-3 w-3 text-primary" />
-              ) : (
-                <Copy className="h-3 w-3 text-muted-foreground" />
-              )}
-            </button>
+          {/* Primary Phone & Actions */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 p-2.5 text-xs">
+              <div className="flex items-center gap-2 text-foreground font-mono font-medium">
+                <Phone className="h-4 w-4 text-primary" />
+                <span>{contact.phone}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleCopyPhone}
+                  className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+                  title="Copy Phone"
+                >
+                  {copied ? (
+                    <Check className="h-3.5 w-3.5 text-primary" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                </button>
+                <a
+                  href={`tel:${contact.phone}`}
+                  className="p-1.5 hover:bg-primary/10 rounded text-primary transition-colors"
+                  title="Call Customer"
+                >
+                  <PhoneCall className="h-3.5 w-3.5" />
+                </a>
+              </div>
+            </div>
 
             {contact.email && (
-              <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 rounded-lg bg-muted/40 p-2.5 text-xs text-muted-foreground">
                 <Mail className="h-4 w-4 text-muted-foreground" />
                 <span className="truncate">{contact.email}</span>
               </div>
             )}
           </div>
 
-          {/* Divider */}
-          <div className="my-4 border-t border-border" />
-
           {/* Tags */}
-          <div>
-            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <div className="border-t border-border pt-3">
+            <div className="flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <TagIcon className="h-3 w-3" />
               {tSidebar("tags")}
             </div>
@@ -207,12 +356,9 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
             </div>
           </div>
 
-          {/* Divider */}
-          <div className="my-4 border-t border-border" />
-
           {/* Active Deals */}
-          <div>
-            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <div className="border-t border-border pt-3">
+            <div className="flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <DollarSign className="h-3 w-3" />
               {tSidebar("deals")}
             </div>
@@ -230,7 +376,7 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                     </p>
                     <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
                       <span>
-                        {deal.currency ?? "$"}
+                        {deal.currency ?? "₹"}
                         {deal.value.toLocaleString()}
                       </span>
                       {deal.stage && (
@@ -251,12 +397,9 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
             </div>
           </div>
 
-          {/* Divider */}
-          <div className="my-4 border-t border-border" />
-
           {/* Notes */}
-          <div>
-            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <div className="border-t border-border pt-3">
+            <div className="flex items-center gap-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <StickyNote className="h-3 w-3" />
               {tSidebar("notes")}
             </div>
@@ -298,6 +441,14 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
           </div>
         </div>
       </ScrollArea>
+
+      {/* Customer Profile Modal */}
+      <CustomerProfileModal
+        open={profileModalOpen}
+        onOpenChange={setProfileModalOpen}
+        contact={contact}
+        onSaved={fetchContactData}
+      />
     </div>
   );
 }
