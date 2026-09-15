@@ -12,13 +12,10 @@ import {
   Pause,
   Download,
   RefreshCw,
-  ExternalLink,
   MessageSquare,
   UserCheck,
-  Filter,
   Clock,
   Calendar,
-  Volume2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -289,8 +286,7 @@ export default function CallsPage() {
                 <th className="px-4 py-3.5">Customer No.</th>
                 <th className="px-4 py-3.5 text-center">Click to Call</th>
                 <th className="px-4 py-3.5">Call Duration</th>
-                <th className="px-4 py-3.5">Date</th>
-                <th className="px-4 py-3.5">Time</th>
+                <th className="px-4 py-3.5">Date & Time</th>
                 <th className="px-4 py-3.5 text-center">Recording</th>
                 {isAdminOrOwner && <th className="px-4 py-3.5 text-right">Assign</th>}
               </tr>
@@ -298,14 +294,14 @@ export default function CallsPage() {
             <tbody className="divide-y divide-border">
               {loading && calls.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
                     <RefreshCw className="mx-auto h-6 w-6 animate-spin mb-2" />
                     Loading call logs from MyTelly...
                   </td>
                 </tr>
               ) : calls.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
                     <PhoneMissed className="mx-auto h-8 w-8 text-muted-foreground/50 mb-2" />
                     No call logs found matching your filters.
                   </td>
@@ -316,6 +312,12 @@ export default function CallsPage() {
                     call.call_status.toLowerCase().includes("missed") ||
                     call.agent_name === "--";
                   const cleanCustomerDigits = call.customer_number.replace(/\D/g, "");
+
+                  // Clean date & time display
+                  const datePart = call.call_date || (call.start_time?.includes(" ") ? call.start_time.split(" ")[0] : "");
+                  const timePart = call.start_time?.includes(" ")
+                    ? call.start_time.split(" ").slice(1).join(" ")
+                    : call.start_time || "";
 
                   return (
                     <tr
@@ -410,21 +412,33 @@ export default function CallsPage() {
                         {call.call_duration || "00:00:00"}
                       </td>
 
-                      {/* Date */}
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
-                        {call.call_date || new Date(call.created_at).toLocaleDateString()}
-                      </td>
-
-                      {/* Time */}
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
-                        <div className="font-medium text-foreground">
-                          {call.start_time || new Date(call.created_at).toLocaleTimeString()}
+                      {/* Date & Time Combined */}
+                      <td className="px-4 py-3 text-xs whitespace-nowrap">
+                        <div className="font-medium text-foreground flex items-center gap-1.5">
+                          <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
+                          <span>
+                            {datePart
+                              ? new Date(datePart).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                })
+                              : new Date(call.created_at).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                })}
+                          </span>
                         </div>
-                        {call.end_time && (
-                          <div className="text-[10px] text-muted-foreground">
-                            End: {call.end_time}
-                          </div>
-                        )}
+                        <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 font-mono">
+                          <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span>{timePart || new Date(call.created_at).toLocaleTimeString()}</span>
+                          {call.end_time && (
+                            <span className="text-[10px] text-muted-foreground/70">
+                              (End: {call.end_time})
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Recording */}

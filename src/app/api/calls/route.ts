@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
       .eq("account_id", ctx.accountId)
       .ilike("note_text", "%MyTelly%")
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(100);
 
     const fallbackLogs = (notes || []).map((n: any) => {
       const text = n.note_text || "";
@@ -82,16 +82,21 @@ export async function GET(req: NextRequest) {
         agent_name = fullAgent.replace(/\s*\([^)]+\)/, "").trim();
       }
 
-      let call_date = "Sep 9, 2026";
+      let call_date = "";
       let start_time = "";
       if (timeMatch) {
-        const parts = timeMatch[1].trim().split(/\s+/);
-        if (parts.length >= 4) {
-          call_date = parts.slice(0, 3).join(" ");
-          start_time = parts.slice(3).join(" ");
+        const rawTimeStr = timeMatch[1].trim();
+        const parts = rawTimeStr.split(/\s+/);
+        if (parts.length >= 2) {
+          call_date = parts[0];
+          start_time = parts.slice(1).join(" ");
         } else {
-          start_time = timeMatch[1].trim();
+          start_time = rawTimeStr;
         }
+      }
+
+      if (!call_date && n.created_at) {
+        call_date = new Date(n.created_at).toISOString().split("T")[0];
       }
 
       return {
