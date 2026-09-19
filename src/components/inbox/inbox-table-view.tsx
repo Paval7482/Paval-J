@@ -180,9 +180,9 @@ export function InboxTableView({
       const contact = conv.contact;
       const profile = contact ? profilesMap[contact.id] : null;
 
-      // Executive isolation: non-admin only sees assigned to them or unassigned
+      // Executive isolation: non-admin strictly sees ONLY leads assigned to them
       if (!isAdminOrOwner && user) {
-        if (conv.assigned_agent_id && conv.assigned_agent_id !== user.id) {
+        if (conv.assigned_agent_id !== user.id) {
           return false;
         }
       }
@@ -234,10 +234,14 @@ export function InboxTableView({
   }, [members]);
 
   // Stats
-  const totalLeads = conversations.length;
-  const openLeads = conversations.filter((c) => c.status === 'open').length;
-  const pendingLeads = conversations.filter((c) => c.status === 'pending').length;
-  const unreadCount = conversations.reduce((acc, c) => acc + (c.unread_count || 0), 0);
+  const baseConvs = (!isAdminOrOwner && user)
+    ? conversations.filter((c) => c.assigned_agent_id === user.id)
+    : conversations;
+
+  const totalLeads = baseConvs.length;
+  const openLeads = baseConvs.filter((c) => c.status === 'open').length;
+  const pendingLeads = baseConvs.filter((c) => c.status === 'pending').length;
+  const unreadCount = baseConvs.reduce((acc, c) => acc + (c.unread_count || 0), 0);
 
   return (
     <div className="flex flex-col gap-5 p-4 sm:p-6 overflow-y-auto h-full">

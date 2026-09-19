@@ -1,0 +1,105 @@
+===================================================
+  Starting Sri Lakshmi Industries CRM Server...
+===================================================
+
+> wacrm@0.8.0 dev
+> next dev
+
+▲ Next.js 16.2.12 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.251.56:3000
+- Environments: .env.local
+✓ Ready in 2.5s
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+
+○ Compiling / ...
+
+thread 'tokio-runtime-worker' (69572) panicked at C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tokio-1.43.0\src\io\blocking.rs:76:46:
+OS can't spawn worker thread: Insufficient system resources exist to complete the requested service. (os error 1450)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'tokio-runtime-worker' (40740) panicked at C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\tokio-1.43.0\src\io\blocking.rs:76:46:
+OS can't spawn worker thread: The paging file is too small for this operation to complete. (os error 1455)
+
+thread '<unnamed>' (100456) panicked at C:\Users\runneradmin\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\rayon-core-1.12.1\src\registry.rs:168:10:
+The global thread pool has not been initialized.: ThreadPoolBuildError { kind: IOError(Os { code: 1450, kind: Uncategorized, message: "Insufficient system resources exist to complete the requested service." }) }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+#
+# Fatal error in , line 0
+# Out of memory: HashMap::Initialize
+#
+#
+#
+#FailureMessage Object: 000000D7A87FB170
+----- Native stack trace -----
+
+ 1: 00007FF6D23C495D 
+ 2: 00007FF6D383259F 
+ 3: 00007FF6D30BD736 
+ 4: 00007FF6D30BCE22 
+ 5: 00007FF6D30BCC50 
+ 6: 00007FF6D2B43F3F 
+ 7: 00007FF6D2B83737 
+ 8: 00007FF6D2B82566 
+ 9: 00007FF6D2B79B56 
+10: 00007FF6D2B7B25B 
+11: 00007FF6D2B7A42E 
+12: 00007FF6D2B8C302 
+13: 00007FF6D2B6BDD5 
+14: 00007FF6D2B749DB 
+15: 00007FF6D2B73EDA 
+16: 00007FF6D2B675D7 
+17: 00007FF6D2B667A4 
+18: 00007FF6D2B65A92 
+19: 00007FF6D2B6573A 
+20: 00007FF6D2B60D69 
+21: 00007FF6D303D0DF 
+22: 00007FF6D303FEE1 
+23: 00007FF6D30C8B53 
+24: 00007FF6D248E8C3 
+25: 00007FF6D248D06E 
+26: 000002CE1FDCF64D 
+
+<--- Last few GCs --->
+
+[39500:00000228E6835000]    23388 ms: Scavenge 16.7 (21.9) -> 14.9 (17.2) MB, pooled: 6 MB, 1.48 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[39500:00000228E6835000]    26550 ms: Scavenge 16.3 (17.4) -> 15.8 (20.9) MB, pooled: 2 MB, 1.31 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+[39500:00000228E6835000]    28591 ms: Scavenge 17.9 (21.4) -> 16.3 (21.7) MB, pooled: 2 MB, 0.77 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+
+FATAL ERROR: Zone Allocation failed - process out of memory
+----- Native stack trace -----
+
+ 1: 00007FF6D2470CCF 
+ 2: 00007FF6D30BF697 
+ 3: 00007FF6D2A39576 
+ 4: 00007FF6D28633CA 
+ 5: 00007FF6D2863293 
+ 6: 00007FF6D2862EC2 
+ 7: 00007FF6D2862EE9 
+ 8: 00007FF6D2862EE9 
+ 9: 00007FF6D2862EE9 
+10: 00007FF6D2862DE3 
+11: 00007FF6D2863529 
+12: 00007FF6D285DA74 
+13: 00007FF6D2865B2E 
+14: 00007FF6D28658A3 
+15: 00007FF6D28C8DF4 
+16: 00007FF6D28C8A27 
+17: 00007FF6D28C77A7 
+18: 00007FF6D28C4C83 
+19: 00007FF6D28C3CB3 
+20: 00007FF6D28C3A9B 
+21: 00007FF6D289A898 
+22: 00007FF6D2912866 
+23: 00007FF6D2911580 
+24: 00007FF6D290F37A 
+25: 00007FF6D303335F 
+26: 00007FF6D2910E5B 
+27: 00007FF6D38A519F 
+28: 00007FF6D23C081E 
+29: 00007FF6D31146D6 
+30: 00007FF6D437A033 
+31: 00007FF83970CCB7 BaseThreadInitThunk+23
+32: 00007FF83ADEAD6C RtlUserThreadStart+44

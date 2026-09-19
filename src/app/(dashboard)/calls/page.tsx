@@ -16,6 +16,12 @@ import {
   UserCheck,
   Clock,
   Calendar,
+  ChevronDown,
+  FileSpreadsheet,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +33,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
 
 interface CallLog {
   id: string;
@@ -51,6 +62,96 @@ interface TeamMember {
   role: string;
 }
 
+const DATE_PRESETS = [
+  { id: "all", label: "All Dates" },
+  { id: "today", label: "Today" },
+  { id: "yesterday", label: "Yesterday" },
+  { id: "last7", label: "Last 7 Days" },
+  { id: "last30", label: "Last 30 Days" },
+  { id: "thisMonth", label: "This Month" },
+  { id: "lastMonth", label: "Last Month" },
+  { id: "custom", label: "Custom Range" },
+];
+
+function calculateDateRange(preset: string): { start: string; end: string; label: string } {
+  const now = new Date();
+  const formatDate = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const formatDisplay = (dStr: string) => {
+    if (!dStr) return "";
+    const d = new Date(dStr + "T00:00:00");
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+
+  if (preset === "today") {
+    const d = formatDate(now);
+    return { start: d, end: d, label: `${formatDisplay(d)} - ${formatDisplay(d)}` };
+  }
+  if (preset === "yesterday") {
+    const prev = new Date(now);
+    prev.setDate(prev.getDate() - 1);
+    const d = formatDate(prev);
+    return { start: d, end: d, label: `${formatDisplay(d)} - ${formatDisplay(d)}` };
+  }
+  if (preset === "last7") {
+    const prev = new Date(now);
+    prev.setDate(prev.getDate() - 6);
+    const s = formatDate(prev);
+    const e = formatDate(now);
+    return { start: s, end: e, label: `${formatDisplay(s)} - ${formatDisplay(e)}` };
+  }
+  if (preset === "last30") {
+    const prev = new Date(now);
+    prev.setDate(prev.getDate() - 29);
+    const s = formatDate(prev);
+    const e = formatDate(now);
+    return { start: s, end: e, label: `${formatDisplay(s)} - ${formatDisplay(e)}` };
+  }
+  if (preset === "thisMonth") {
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    const s = formatDate(firstDay);
+    const e = formatDate(now);
+    return { start: s, end: e, label: `${formatDisplay(s)} - ${formatDisplay(e)}` };
+  }
+  if (preset === "lastMonth") {
+    const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
+    const s = formatDate(firstDay);
+    const e = formatDate(lastDay);
+    return { start: s, end: e, label: `${formatDisplay(s)} - ${formatDisplay(e)}` };
+  }
+  return { start: "", end: "", label: "All Dates" };
+}
+
+function formatDateDisplay(datePart?: string | null, createdAt?: string | null) {
+  if (datePart && datePart !== "Invalid Date" && !datePart.toLowerCase().includes("invalid")) {
+    const parsed = new Date(datePart.includes("T") ? datePart : `${datePart}T00:00:00`);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+  }
+  if (createdAt) {
+    const parsed = new Date(createdAt);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+  }
+  return datePart || "Recent";
+}
+
 export default function CallsPage() {
   const { accountRole, accountId } = useAuth();
   const isAdminOrOwner = accountRole === "owner" || accountRole === "admin";
@@ -63,6 +164,18 @@ export default function CallsPage() {
   const [agentFilter, setAgentFilter] = useState<string>("all");
   const [playingId, setPlayingId] = useState<string | null>(null);
 
+  // Date Filter State
+  const [datePreset, setDatePreset] = useState<string>("all");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [customStart, setCustomStart] = useState<string>("");
+  const [customEnd, setCustomEnd] = useState<string>("");
+  const [isDateOpen, setIsDateOpen] = useState(false);
+
+  // Pagination State (Default: 10 items per page)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   const fetchCalls = useCallback(async () => {
     try {
       setLoading(true);
@@ -70,6 +183,8 @@ export default function CallsPage() {
       if (search) params.set("search", search);
       if (statusFilter !== "all") params.set("status", statusFilter);
       if (agentFilter !== "all") params.set("agent", agentFilter);
+      if (startDate) params.set("startDate", startDate);
+      if (endDate) params.set("endDate", endDate);
 
       const res = await fetch(`/api/calls?${params.toString()}`);
       const data = await res.json();
@@ -82,7 +197,99 @@ export default function CallsPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter, agentFilter]);
+  }, [search, statusFilter, agentFilter, startDate, endDate]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, agentFilter, startDate, endDate]);
+
+  const handleSelectPreset = (presetId: string) => {
+    setDatePreset(presetId);
+    if (presetId === "custom") {
+      return;
+    }
+    const range = calculateDateRange(presetId);
+    setStartDate(range.start);
+    setEndDate(range.end);
+    setIsDateOpen(false);
+  };
+
+  const handleApplyCustom = () => {
+    if (!customStart || !customEnd) {
+      toast.error("Please pick both start and end date");
+      return;
+    }
+    if (customStart > customEnd) {
+      toast.error("Start date cannot be after end date");
+      return;
+    }
+    setDatePreset("custom");
+    setStartDate(customStart);
+    setEndDate(customEnd);
+    setIsDateOpen(false);
+  };
+
+  const handleExportCSV = () => {
+    if (calls.length === 0) {
+      toast.error("No call logs to export");
+      return;
+    }
+
+    const headers = [
+      "Agent Name",
+      "Agent Phone",
+      "Virtual Number",
+      "Call Status",
+      "Customer Number",
+      "Call Duration",
+      "Date",
+      "Time",
+      "Recording URL",
+    ];
+
+    const rows = calls.map((c) => {
+      const datePart = c.call_date || (c.start_time?.includes(" ") ? c.start_time.split(" ")[0] : "");
+      const timePart = c.start_time?.includes(" ")
+        ? c.start_time.split(" ").slice(1).join(" ")
+        : c.start_time || "";
+
+      return [
+        `"${(c.agent_name || "").replace(/"/g, '""')}"`,
+        `"${(c.agent_phone || "").replace(/"/g, '""')}"`,
+        `"${(c.virtual_number || "9672115123").replace(/"/g, '""')}"`,
+        `"${(c.call_status || "").replace(/"/g, '""')}"`,
+        `"${(c.customer_number || "").replace(/"/g, '""')}"`,
+        `"${(c.call_duration || "00:00:00").replace(/"/g, '""')}"`,
+        `"${(datePart || c.created_at.slice(0, 10)).replace(/"/g, '""')}"`,
+        `"${(timePart || "").replace(/"/g, '""')}"`,
+        `"${(c.recording_url || "").replace(/"/g, '""')}"`,
+      ];
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    const exportTime = new Date().toISOString().slice(0, 10);
+    link.setAttribute("download", `Sri_Lakshmi_Industries_Call_Logs_${exportTime}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success(`Exported ${calls.length} call records successfully!`);
+  };
+
+  const getActiveDateLabel = () => {
+    if (datePreset === "all") return "All Dates";
+    if (datePreset === "custom") {
+      const formatDisplay = (dStr: string) => {
+        if (!dStr) return "";
+        const d = new Date(dStr + "T00:00:00");
+        return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      };
+      return `${formatDisplay(startDate)} - ${formatDisplay(endDate)}`;
+    }
+    return calculateDateRange(datePreset).label;
+  };
 
   const fetchMembers = useCallback(async () => {
     try {
@@ -144,35 +351,195 @@ export default function CallsPage() {
     c.call_status.toLowerCase().includes("missed"),
   ).length;
 
+  // Pagination calculation
+  const totalPages = Math.max(1, Math.ceil(calls.length / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, calls.length);
+  const paginatedCalls = calls.slice(startIndex, endIndex);
+
   return (
     <div className="flex flex-col gap-6 p-6">
-      {/* Top Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              MyTelly Calls
-            </h1>
-            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-              Virtual No: 9672115123
-            </Badge>
+      {/* Top Header - Frozen Sticky Section */}
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md pb-3 pt-1 border-b border-border/40 flex flex-col gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                MyTelly Calls
+              </h1>
+              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                Virtual No: 9672115123
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Real-time incoming & missed calls log from MyTelly IVR system
+            </p>
           </div>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Real-time incoming & missed calls log from MyTelly IVR system
-          </p>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              className="gap-2 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 shadow-xs"
+            >
+              <Download className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <span>Export Report</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchCalls}
+              disabled={loading}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh Logs
+            </Button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchCalls}
-            disabled={loading}
-            className="gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Refresh Logs
-          </Button>
+        {/* Filter and Search Bar (Sticky along with top header) */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-card p-2.5 rounded-lg border border-border shadow-xs">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by customer phone or agent..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 h-9 text-sm"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Date Range Dropdown Popover */}
+            <Popover open={isDateOpen} onOpenChange={setIsDateOpen}>
+              <PopoverTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-2 text-xs sm:text-sm font-medium border-input bg-background hover:bg-muted"
+                  />
+                }
+              >
+                <Calendar className="h-4 w-4 text-primary shrink-0" />
+                <span className="truncate max-w-[170px] sm:max-w-none">{getActiveDateLabel()}</span>
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 opacity-70" />
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 p-3 space-y-3">
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground pb-1 border-b border-border">
+                  Filter By Date Range
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {DATE_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => handleSelectPreset(preset.id)}
+                      className={`px-2.5 py-1.5 rounded-md text-xs font-medium text-left transition-colors ${
+                        datePreset === preset.id
+                          ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                          : "hover:bg-muted text-foreground"
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+
+                {datePreset === "custom" && (
+                  <div className="space-y-2 pt-2 border-t border-border">
+                    <div className="text-xs font-medium text-muted-foreground">
+                      Custom Date Interval
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[11px] text-muted-foreground block mb-1">
+                          From Date
+                        </label>
+                        <Input
+                          type="date"
+                          value={customStart}
+                          onChange={(e) => setCustomStart(e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] text-muted-foreground block mb-1">
+                          To Date
+                        </label>
+                        <Input
+                          type="date"
+                          value={customEnd}
+                          onChange={(e) => setCustomEnd(e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="w-full h-8 text-xs mt-1"
+                      onClick={handleApplyCustom}
+                    >
+                      Apply Custom Filter
+                    </Button>
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
+
+            {/* Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              aria-label="Filter calls by status"
+              className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm font-medium shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="all">All Statuses</option>
+              <option value="Connected">Connected Calls</option>
+              <option value="Missed">Missed Calls</option>
+            </select>
+
+            {/* Agent Filter (Admin only) or Executive Badge */}
+            {isAdminOrOwner ? (
+              <select
+                value={agentFilter}
+                onChange={(e) => setAgentFilter(e.target.value)}
+                aria-label="Filter calls by agent"
+                className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm font-medium shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="all">All Agents</option>
+                <option value="SUBASH">SUBASH</option>
+                <option value="NALLAKAMAN">NALLAKAMAN</option>
+                <option value="Paval">Paval J</option>
+                <option value="RK PRASAD">RK PRASAD</option>
+                <option value="karthick">KARTHICK</option>
+                <option value="Satheesh">SATHEESH</option>
+                <option value="BALA">BALA</option>
+                <option value="BASKAR">BASKAR</option>
+                <option value="MD SIR">MD SIR</option>
+              </select>
+            ) : (
+              <div className="flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary border border-primary/20">
+                <UserCheck className="h-3.5 w-3.5" />
+                <span>My Assigned Calls</span>
+              </div>
+            )}
+
+            {/* Export Report Quick Action */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              className="h-9 gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+              title="Export call logs as CSV / Excel"
+            >
+              <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <span className="hidden sm:inline">Export</span>
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -221,64 +588,11 @@ export default function CallsPage() {
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-card p-3 rounded-lg border border-border">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by customer phone or agent..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-9 text-sm"
-          />
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            aria-label="Filter calls by status"
-            className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm font-medium shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            <option value="all">All Statuses</option>
-            <option value="Connected">Connected Calls</option>
-            <option value="Missed">Missed Calls</option>
-          </select>
-
-          {/* Agent Filter (Admin only) or Executive Badge */}
-          {isAdminOrOwner ? (
-            <select
-              value={agentFilter}
-              onChange={(e) => setAgentFilter(e.target.value)}
-              aria-label="Filter calls by agent"
-              className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm font-medium shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="all">All Agents</option>
-              <option value="SUBASH">SUBASH</option>
-              <option value="NALLAKAMAN">NALLAKAMAN</option>
-              <option value="Paval">Paval J</option>
-              <option value="RK PRASAD">RK PRASAD</option>
-              <option value="karthick">KARTHICK</option>
-              <option value="Satheesh">SATHEESH</option>
-              <option value="BALA">BALA</option>
-              <option value="BASKAR">BASKAR</option>
-              <option value="MD SIR">MD SIR</option>
-            </select>
-          ) : (
-            <div className="flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary border border-primary/20">
-              <UserCheck className="h-3.5 w-3.5" />
-              <span>My Assigned Calls</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Main Table Matching MyTelly Portal UI */}
-      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+      {/* Main Table Matching MyTelly Portal UI with Sticky Header */}
+      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden flex flex-col">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-border bg-muted/50 text-xs uppercase font-semibold text-muted-foreground">
+            <thead className="sticky top-0 z-10 border-b border-border bg-muted/95 backdrop-blur-sm text-xs uppercase font-semibold text-muted-foreground shadow-xs">
               <tr>
                 <th className="px-4 py-3.5">Agent Name</th>
                 <th className="px-4 py-3.5">Virtual Number</th>
@@ -307,7 +621,7 @@ export default function CallsPage() {
                   </td>
                 </tr>
               ) : (
-                calls.map((call) => {
+                paginatedCalls.map((call) => {
                   const isMissed =
                     call.call_status.toLowerCase().includes("missed") ||
                     call.agent_name === "--";
@@ -412,27 +726,20 @@ export default function CallsPage() {
                         {call.call_duration || "00:00:00"}
                       </td>
 
-                      {/* Date & Time Combined */}
+                      {/* Date & Time Combined with Safe Formatting */}
                       <td className="px-4 py-3 text-xs whitespace-nowrap">
                         <div className="font-medium text-foreground flex items-center gap-1.5">
                           <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
-                          <span>
-                            {datePart
-                              ? new Date(datePart).toLocaleDateString("en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                })
-                              : new Date(call.created_at).toLocaleDateString("en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                })}
-                          </span>
+                          <span>{formatDateDisplay(datePart, call.created_at)}</span>
                         </div>
                         <div className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 font-mono">
                           <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
-                          <span>{timePart || new Date(call.created_at).toLocaleTimeString()}</span>
+                          <span>
+                            {timePart ||
+                              (call.created_at
+                                ? new Date(call.created_at).toLocaleTimeString()
+                                : "")}
+                          </span>
                           {call.end_time && (
                             <span className="text-[10px] text-muted-foreground/70">
                               (End: {call.end_time})
@@ -452,7 +759,7 @@ export default function CallsPage() {
                               }
                               className={`flex h-7 w-7 items-center justify-center rounded-full transition-colors ${
                                 playingId === call.id
-                                  ? "bg-primary text-primary-foreground"
+                                    ? "bg-primary text-primary-foreground"
                                   : "bg-muted text-foreground hover:bg-primary/10 hover:text-primary"
                               }`}
                               title={playingId === call.id ? "Close Player" : "Play Audio"}
@@ -523,6 +830,85 @@ export default function CallsPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls Footer */}
+        {calls.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-border bg-card/60 px-4 py-3 text-xs text-muted-foreground">
+            <div className="flex items-center gap-3">
+              <span>
+                Showing <strong className="text-foreground">{startIndex + 1}</strong> to{" "}
+                <strong className="text-foreground">{endIndex}</strong> of{" "}
+                <strong className="text-foreground">{calls.length}</strong> records
+              </span>
+              <span className="hidden sm:inline text-muted-foreground/40">|</span>
+              <div className="flex items-center gap-1.5">
+                <span>Rows:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  aria-label="Records per page"
+                  className="h-7 rounded border border-input bg-background px-1.5 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                title="First Page"
+              >
+                <ChevronsLeft className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-2.5 gap-1 text-xs"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                <span>Prev</span>
+              </Button>
+
+              <div className="flex items-center px-2.5 font-medium text-foreground text-xs">
+                Page {currentPage} of {totalPages}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-2.5 gap-1 text-xs"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                <span>Next</span>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                title="Last Page"
+              >
+                <ChevronsRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

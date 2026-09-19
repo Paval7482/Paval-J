@@ -15,7 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { MessageSquare, UsersRound } from "lucide-react";
+import { Award, ShieldCheck, Sparkles, UsersRound } from "lucide-react";
 
 // `useSearchParams` opts the component out of static prerendering
 // unless it sits under a Suspense boundary. We split the form into
@@ -80,23 +80,41 @@ function LoginPageInner() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md border-border bg-card">
-        <CardHeader className="items-center text-center">
-          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            {inviteToken ? (
-              <UsersRound className="h-6 w-6 text-primary" />
-            ) : (
-              <MessageSquare className="h-6 w-6 text-primary" />
-            )}
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
+      <Card className="w-full max-w-md border-border bg-card shadow-xl shadow-primary/5">
+        <CardHeader className="items-center text-center pb-4">
+          {/* Official Phoenix Logo */}
+          <div className="mb-2 flex items-center justify-center">
+            <div className="relative flex h-24 w-24 items-center justify-center rounded-2xl bg-white/5 p-1 border border-border/80 shadow-md">
+              <img
+                src="/logo.png"
+                alt="Sri Lakshmi Industries"
+                className="h-full w-full object-contain"
+              />
+            </div>
           </div>
-          <CardTitle className="text-xl text-foreground">
-            {inviteToken ? t('titleAccept') : t('titleWelcome')}
+
+          <CardTitle className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
+            Sri Lakshmi Industries
           </CardTitle>
-          <CardDescription className="text-muted-foreground">
+
+          {/* Hindi & Tamil Brand Names */}
+          <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs font-semibold text-primary mt-1">
+            <span>श्री लक्ष्मी इंडस्ट्रीज</span>
+            <span className="text-muted-foreground">•</span>
+            <span>ஸ்ரீ லக்ஷ்மி இண்டஸ்ட்ரீஸ்</span>
+          </div>
+
+          {/* Patent Rights Tagline Badge */}
+          <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 px-3 py-1 text-[11px] font-bold text-amber-500 dark:text-amber-400 shadow-xs">
+            <Award className="h-3.5 w-3.5 shrink-0" />
+            <span>India&apos;s 1st Patent Rights Murukku Machine Manufacturing</span>
+          </div>
+
+          <CardDescription className="text-xs text-muted-foreground mt-3">
             {inviteToken
               ? t('descAccept')
-              : t('descWelcome')}
+              : "Sign in to your CRM portal account"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -114,7 +132,7 @@ function LoginPageInner() {
               <Input
                 id="email"
                 type="text"
-                placeholder="e.g. karthick or karthick@sli.com"
+                placeholder="e.g. mdsir, satheesh, subash..."
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required

@@ -11,6 +11,8 @@ export async function GET(req: NextRequest) {
     const search = url.searchParams.get("search")?.trim() || "";
     const status = url.searchParams.get("status") || "all";
     const agent = url.searchParams.get("agent") || "all";
+    const startDate = url.searchParams.get("startDate")?.trim() || "";
+    const endDate = url.searchParams.get("endDate")?.trim() || "";
 
     // Resolve caller profile to determine if they are an executive
     const { data: callerProfile } = await admin
@@ -33,10 +35,17 @@ export async function GET(req: NextRequest) {
       .select("*")
       .eq("account_id", ctx.accountId)
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(200);
 
     if (status !== "all") {
       query = query.ilike("call_status", `%${status}%`);
+    }
+
+    if (startDate) {
+      query = query.gte("call_date", startDate);
+    }
+    if (endDate) {
+      query = query.lte("call_date", endDate);
     }
 
     if (executiveName) {
@@ -117,12 +126,40 @@ export async function GET(req: NextRequest) {
 
     let filteredLogs = fallbackLogs;
     if (executiveName) {
-      filteredLogs = fallbackLogs.filter((l: any) =>
+      filteredLogs = filteredLogs.filter((l: any) =>
         l.agent_name.toLowerCase().includes(executiveName.toLowerCase())
       );
     } else if (agent !== "all") {
-      filteredLogs = fallbackLogs.filter((l: any) =>
+      filteredLogs = filteredLogs.filter((l: any) =>
         l.agent_name.toLowerCase().includes(agent.toLowerCase())
+      );
+    }
+
+    if (status !== "all") {
+      filteredLogs = filteredLogs.filter((l: any) =>
+        l.call_status.toLowerCase().includes(status.toLowerCase())
+      );
+    }
+
+    if (startDate) {
+      filteredLogs = filteredLogs.filter((l: any) => {
+        const d = l.call_date || (l.created_at ? l.created_at.slice(0, 10) : "");
+        return !d || d >= startDate;
+      });
+    }
+
+    if (endDate) {
+      filteredLogs = filteredLogs.filter((l: any) => {
+        const d = l.call_date || (l.created_at ? l.created_at.slice(0, 10) : "");
+        return !d || d <= endDate;
+      });
+    }
+
+    if (search) {
+      const s = search.toLowerCase();
+      filteredLogs = filteredLogs.filter((l: any) =>
+        (l.customer_number && l.customer_number.toLowerCase().includes(s)) ||
+        (l.agent_name && l.agent_name.toLowerCase().includes(s))
       );
     }
 

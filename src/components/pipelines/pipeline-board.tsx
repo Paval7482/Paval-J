@@ -17,7 +17,7 @@ import {
 import type { Deal, PipelineStage } from "@/types";
 import { DealCard } from "./deal-card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { formatCurrency } from "@/lib/currency";
 import { useTranslations } from "next-intl";
@@ -97,13 +97,7 @@ export function PipelineBoard({
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      {/* snap-x + snap-mandatory on mobile so swipes land the next
-          stage cleanly at the viewport edge instead of mid-column.
-          Disabled on lg+ where snapping would interfere with the
-          natural layout. The board can still overflow horizontally on
-          lg+ once a pipeline has many stages (columns keep a 260px
-          min-width), so a thin scrollbar stays visible on desktop. */}
-      <div className="pipeline-scroll flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4 lg:snap-none">
+      <div className="pipeline-scroll flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4 lg:snap-none items-start">
         {sortedStages.map((stage) => {
           const stageDeals = dealsByStage.get(stage.id) ?? [];
           const totalValue = stageDeals.reduce(
@@ -131,7 +125,7 @@ export function PipelineBoard({
         }}
       >
         {activeDeal ? (
-          <div className="opacity-90">
+          <div className="opacity-90 shadow-2xl">
             <DealCard
               deal={activeDeal}
               stage={
@@ -148,11 +142,6 @@ export function PipelineBoard({
         .pipeline-scroll {
           scroll-behavior: smooth;
         }
-        /* On touch devices the peek/snap layout already signals there's
-           more to swipe, so the scrollbar is hidden for a clean look.
-           On desktop (mouse) the board can overflow with many stages
-           and there is no peek hint, so keep a thin, themed scrollbar
-           visible to make the overflow discoverable and usable. */
         @media (hover: none), (pointer: coarse) {
           .pipeline-scroll::-webkit-scrollbar {
             height: 0;
@@ -204,45 +193,103 @@ function StageColumn({
   const t = useTranslations("Pipelines.board");
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
+  // Page Breakup (Pagination) State
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [page, setPage] = useState<number>(1);
+
+  const totalPages = Math.max(1, Math.ceil(deals.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+
+  const paginatedDeals = useMemo(() => {
+    if (pageSize >= 1000) return deals;
+    const from = (safePage - 1) * pageSize;
+    return deals.slice(from, from + pageSize);
+  }, [deals, safePage, pageSize]);
+
   return (
-    // On mobile each column is `w-[85vw]` (with a reasonable min/max)
-    // so the next column's edge peeks in — a "there's more here" hint.
-    // snap-start lands each column cleanly when swiping. On lg+ we
-    // restore the flex-1 share-the-row behavior. The droppable ref is
-    // on the inner messages region below — intentionally NOT here, so
-    // a drag over the column header doesn't highlight the whole column.
-    <div className="flex w-[85vw] min-w-[260px] max-w-[320px] shrink-0 snap-start flex-col rounded-xl border border-border bg-card/60 p-4 lg:w-auto lg:max-w-none lg:flex-1 lg:basis-[260px] lg:shrink lg:snap-none">
-      {/* 3px colored top border — sits above the column's padding */}
+    <div className="flex w-[85vw] min-w-[280px] max-w-[340px] shrink-0 snap-start flex-col rounded-xl border border-border bg-card shadow-xs lg:w-auto lg:max-w-none lg:flex-1 lg:basis-[280px] lg:shrink lg:snap-none overflow-hidden">
+      {/* 3px colored top border indicator */}
       <div
-        className="-mx-4 -mt-4 h-[3px] rounded-t-xl"
+        className="h-[3.5px] w-full"
         style={{ backgroundColor: stage.color }}
       />
-      <div className="flex items-center justify-between pt-3">
-        <h3 className="truncate text-sm font-semibold text-foreground">
-          {stage.name}
-        </h3>
-        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-          {deals.length}
-        </span>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        {formatCurrency(totalValue, currency)}
-      </p>
 
+      {/* Stage Header (Always visible & fixed inside column) */}
+      <div className="p-3.5 border-b border-border/60 bg-card/80 backdrop-blur-xs">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className="w-2.5 h-2.5 rounded-full shrink-0"
+              style={{ backgroundColor: stage.color }}
+            />
+            <h3 className="truncate text-sm font-bold text-foreground">
+              {stage.name}
+            </h3>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span
+              className="rounded-full px-2 py-0.5 text-[11px] font-bold text-foreground border border-border bg-muted/60"
+              title={`${deals.length} total deals in ${stage.name}`}
+            >
+              {deals.length}
+            </span>
+
+            {/* Page Size Selector */}
+            {deals.length > 10 && (
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="h-6 rounded border border-border bg-background px-1 text-[10px] font-semibold text-muted-foreground outline-none focus:border-primary"
+                title="Cards per page"
+              >
+                <option value={10}>10 / page</option>
+                <option value={20}>20 / page</option>
+                <option value={50}>50 / page</option>
+                <option value={1000}>All</option>
+              </select>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mt-1 text-xs text-muted-foreground">
+          <span>{formatCurrency(totalValue, currency)}</span>
+          {deals.length > 0 && totalPages > 1 && (
+            <span className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.2 rounded">
+              Page {safePage} of {totalPages}
+            </span>
+          )}
+        </div>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onAddDeal(stage.id)}
+          className="mt-2.5 h-7 w-full justify-center border border-dashed border-primary/30 bg-primary/5 text-xs font-semibold text-primary hover:border-primary hover:bg-primary/10 hover:text-primary transition-all"
+        >
+          <Plus className="mr-1 h-3.5 w-3.5" />
+          <span>+ Add Customer</span>
+        </Button>
+      </div>
+
+      {/* Droppable and Scrollable Cards Region (Internal Scroll) */}
       <div
         ref={setNodeRef}
-        className={`mt-3 flex flex-1 flex-col gap-2 rounded-lg transition-all ${
+        className={`p-3 max-h-[calc(100vh-340px)] min-h-[160px] overflow-y-auto flex flex-col gap-2.5 transition-all ${
           isOver
-            ? "bg-primary/5 outline outline-2 outline-dashed outline-primary outline-offset-2"
-            : ""
+            ? "bg-primary/5 ring-2 ring-dashed ring-primary ring-inset"
+            : "bg-muted/15"
         }`}
       >
         {deals.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center rounded-lg border-2 border-dashed border-border py-10 text-xs text-muted-foreground">
+          <div className="flex flex-1 items-center justify-center rounded-lg border-2 border-dashed border-border py-12 text-xs text-muted-foreground text-center">
             {t("dropDealHere")}
           </div>
         ) : (
-          deals.map((deal) => (
+          paginatedDeals.map((deal) => (
             <DraggableDealCard
               key={deal.id}
               deal={deal}
@@ -253,15 +300,63 @@ function StageColumn({
         )}
       </div>
 
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => onAddDeal(stage.id)}
-        className="mt-3 w-full justify-start border border-dashed border-border bg-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
-      >
-        <Plus className="mr-1 h-3 w-3" />
-        {t("addDeal")}
-      </Button>
+      {/* Pagination Footer (Only if total deals exceed page size) */}
+      {totalPages > 1 && (
+        <div className="p-2.5 border-t border-border/80 bg-card flex items-center justify-between text-[11px] text-muted-foreground">
+          <span className="font-mono text-[10.5px]">
+            {Math.min((safePage - 1) * pageSize + 1, deals.length)}-
+            {Math.min(safePage * pageSize, deals.length)} of {deals.length}
+          </span>
+
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={safePage <= 1}
+              onClick={() => setPage(1)}
+              className="h-6 w-6 p-0 border-border text-foreground hover:bg-muted"
+              title="First Page"
+            >
+              <ChevronsLeft className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={safePage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="h-6 w-6 p-0 border-border text-foreground hover:bg-muted"
+              title="Previous Page"
+            >
+              <ChevronLeft className="h-3 w-3" />
+            </Button>
+
+            <span className="px-1 text-[11px] font-bold text-foreground">
+              {safePage} / {totalPages}
+            </span>
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={safePage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="h-6 w-6 p-0 border-border text-foreground hover:bg-muted"
+              title="Next Page"
+            >
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={safePage >= totalPages}
+              onClick={() => setPage(totalPages)}
+              className="h-6 w-6 p-0 border-border text-foreground hover:bg-muted"
+              title="Last Page"
+            >
+              <ChevronsRight className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

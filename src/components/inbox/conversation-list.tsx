@@ -54,12 +54,12 @@ export function ConversationList({
 }: ConversationListProps) {
   const t = useTranslations("Inbox.conversationList");
   const { user, accountRole } = useAuth();
+  const isAdminOrOwner = accountRole === "owner" || accountRole === "admin";
   
   const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = useMemo(() => {
-    if (accountRole === "agent") {
+    if (!isAdminOrOwner) {
       return [
-        { label: "Assigned to Me", value: "assigned" },
-        { label: "All Leads", value: "all" },
+        { label: "My Assigned Leads", value: "assigned" },
         { label: t("filterUnread"), value: "unread" },
         { label: t("filterOpen"), value: "open" },
         { label: t("filterPending"), value: "pending" },
@@ -68,16 +68,17 @@ export function ConversationList({
     }
     return [
       { label: t("filterAll"), value: "all" },
+      { label: "Assigned to Me", value: "assigned" },
       { label: t("filterUnread"), value: "unread" },
       { label: t("filterOpen"), value: "open" },
       { label: t("filterPending"), value: "pending" },
       { label: t("filterClosed"), value: "closed" },
     ];
-  }, [t, accountRole]);
+  }, [t, isAdminOrOwner]);
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<InboxFilter>(
-    accountRole === "agent" ? "assigned" : "all"
+    !isAdminOrOwner ? "assigned" : "all"
   );
   const [loading, setLoading] = useState(true);
   // Contact-based filters (issue #272). Tags use OR logic (a conversation
@@ -174,6 +175,11 @@ export function ConversationList({
 
   const filtered = useMemo(() => {
     let result = conversations;
+
+    // Strict executive isolation: non-admin only sees conversations assigned to them
+    if (!isAdminOrOwner && user) {
+      result = result.filter((c) => c.assigned_agent_id === user.id);
+    }
 
     if (filter === "assigned") {
       result = result.filter((c) => c.assigned_agent_id === user?.id);

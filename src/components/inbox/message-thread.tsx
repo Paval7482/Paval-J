@@ -168,7 +168,8 @@ export function MessageThread({
   const tTimer = useTranslations("Inbox.sessionTimer");
   const tQuote = useTranslations("Inbox.replyQuote");
 
-  const { user } = useAuth();
+  const { user, accountRole } = useAuth();
+  const isAdminOrOwner = accountRole === "owner" || accountRole === "admin" || user?.email?.toLowerCase().includes("admin");
   const { getPresence, getRow, now } = usePresence();
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -1012,70 +1013,85 @@ export function MessageThread({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Assign dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className={cn(
-                "inline-flex items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
-                assignedAgentId ? "text-primary" : "text-muted-foreground"
-              )}
-            >
-              <UserPlus className="h-3 w-3" />
-              <span className="hidden sm:inline">{assignLabel}</span>
-              <ChevronDown className="h-3 w-3" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="border-border bg-popover"
-            >
-              {profiles.length === 0 ? (
-                <DropdownMenuItem disabled className="text-sm text-muted-foreground">
-                  {t("noTeammates")}
-                </DropdownMenuItem>
-              ) : (
-                profiles.map((p) => {
-                  const isSelected = p.user_id === assignedAgentId;
-                  const presence = getPresence(p.user_id);
-                  return (
-                    <DropdownMenuItem
-                      key={p.id}
-                      onClick={() => handleAssignChange(p.user_id)}
-                      className={cn(
-                        "text-sm",
-                        isSelected ? "text-primary" : "text-popover-foreground"
-                      )}
-                    >
-                      <PresenceDot
-                        status={presence}
-                        label={presenceLabel(
-                          presence,
-                          getRow(p.user_id)?.last_seen_at ?? null,
-                          now
-                        )}
-                        className="mr-2"
-                      />
-                      <span className="flex-1">
-                        {p.full_name}
-                        {p.user_id === user?.id ? t("me") : ""}
-                      </span>
-                      {isSelected && <Check className="ml-2 h-3 w-3" />}
-                    </DropdownMenuItem>
-                  );
-                })
-              )}
-              {assignedAgentId && (
-                <>
-                  <DropdownMenuSeparator className="bg-border" />
-                  <DropdownMenuItem
-                    onClick={() => handleAssignChange(null)}
-                    className="text-sm text-muted-foreground"
-                  >
-                    {t("unassign")}
+          {/* Assign dropdown (Admin only can reassign; Agents see static badge) */}
+          {isAdminOrOwner ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className={cn(
+                  "inline-flex items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-muted",
+                  assignedAgentId ? "text-primary" : "text-muted-foreground"
+                )}
+              >
+                <UserPlus className="h-3 w-3" />
+                <span className="hidden sm:inline">{assignLabel}</span>
+                <ChevronDown className="h-3 w-3" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="border-border bg-popover"
+              >
+                {profiles.length === 0 ? (
+                  <DropdownMenuItem disabled className="text-sm text-muted-foreground">
+                    {t("noTeammates")}
                   </DropdownMenuItem>
-                </>
+                ) : (
+                  profiles.map((p) => {
+                    const isSelected = p.user_id === assignedAgentId;
+                    const presence = getPresence(p.user_id);
+                    return (
+                      <DropdownMenuItem
+                        key={p.id}
+                        onClick={() => handleAssignChange(p.user_id)}
+                        className={cn(
+                          "text-sm",
+                          isSelected ? "text-primary" : "text-popover-foreground"
+                        )}
+                      >
+                        <PresenceDot
+                          status={presence}
+                          label={presenceLabel(
+                            presence,
+                            getRow(p.user_id)?.last_seen_at ?? null,
+                            now
+                          )}
+                          className="mr-2"
+                        />
+                        <span className="flex-1">
+                          {p.full_name}
+                          {p.user_id === user?.id ? t("me") : ""}
+                        </span>
+                        {isSelected && <Check className="ml-2 h-3 w-3" />}
+                      </DropdownMenuItem>
+                    );
+                  })
+                )}
+                {assignedAgentId && (
+                  <>
+                    <DropdownMenuSeparator className="bg-border" />
+                    <DropdownMenuItem
+                      onClick={() => handleAssignChange(null)}
+                      className="text-sm text-muted-foreground"
+                    >
+                      {t("unassign")}
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <div
+              className={cn(
+                "inline-flex items-center justify-center h-7 gap-1.5 px-2.5 text-xs font-medium rounded-md select-none",
+                assignedAgentId
+                  ? "text-primary bg-primary/10 border border-primary/20"
+                  : "text-muted-foreground bg-muted"
               )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+              title={`Assigned to: ${assignLabel}`}
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{assignLabel}</span>
+            </div>
+          )}
         </div>
       </div>
 

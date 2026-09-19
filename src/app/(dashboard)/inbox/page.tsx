@@ -19,6 +19,8 @@ import { WifiOff, LayoutList, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+import { useAuth } from "@/hooks/use-auth";
+
 const CONTACT_PANEL_STORAGE_KEY = "wacrm:inbox:contact-panel-open";
 const INBOX_VIEW_MODE_KEY = "wacrm:inbox:view-mode";
 
@@ -32,6 +34,8 @@ export default function InboxPage() {
 
 function InboxPageInner() {
   const t = useTranslations("Inbox.page");
+  const { user, accountRole } = useAuth();
+  const isAdminOrOwner = accountRole === "owner" || accountRole === "admin";
   const router = useRouter();
   const searchParams = useSearchParams();
   const deepLinkConvId = searchParams.get("c");
@@ -423,7 +427,9 @@ function InboxPageInner() {
             {viewMode === "table" ? "WhatsApp Leads & Profile Directory" : "Live Chat Inbox"}
           </h1>
           <span className="text-xs text-muted-foreground hidden sm:inline">
-            ({conversations.length} leads loaded)
+            ({!isAdminOrOwner && user 
+                ? `${conversations.filter(c => c.assigned_agent_id === user.id).length} assigned` 
+                : `${conversations.length} leads loaded`})
           </span>
         </div>
 

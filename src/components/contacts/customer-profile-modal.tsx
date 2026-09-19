@@ -300,16 +300,16 @@ export function CustomerProfileModal({
               </div>
             </div>
 
-            {/* Lead Status */}
-            <div className="space-y-1.5 p-3 rounded-lg border border-border bg-muted/20">
-              <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+            {/* Pipeline Stage (ELBR Category) */}
+            <div className="space-y-1.5 p-3 rounded-lg border border-primary/20 bg-primary/5">
+              <Label className="text-xs font-bold text-primary flex items-center gap-1.5">
                 <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
-                Lead Status
+                Pipeline Stage (ELBR Category)
               </Label>
               <select
                 value={leadStatus}
                 onChange={(e) => setLeadStatus(e.target.value)}
-                className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full h-9 rounded-md border border-primary/30 bg-background px-3 py-1 text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
               >
                 {LEAD_STATUSES.map((ls) => (
                   <option key={ls} value={ls}>

@@ -56,6 +56,7 @@ import {
   Activity,
   Edit3,
   UserCheck,
+  ChevronDown,
 } from 'lucide-react';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
@@ -412,6 +413,161 @@ export default function ContactsPage() {
     });
   }
 
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  async function handleBulkMoveStage(stageName: string) {
+    const ids = [...selected];
+    if (ids.length === 0 || !accountId) return;
+    setBulkProcessing(true);
+    try {
+      let mappedStatus = 'New Enquiry';
+      if (stageName === 'Lead') mappedStatus = 'In Follow-up';
+      if (stageName === 'Booking') mappedStatus = 'Booking / Closed Won';
+      if (stageName === 'Retail') mappedStatus = 'Retail / Closed';
+
+      const { data: field } = await supabase
+        .from('contact_custom_fields')
+        .select('id')
+        .eq('name', 'Lead Status')
+        .maybeSingle();
+
+      if (field) {
+        const payload = ids.map((contactId) => ({
+          contact_id: contactId,
+          custom_field_id: field.id,
+          value: mappedStatus,
+        }));
+        await supabase
+          .from('contact_custom_field_values')
+          .upsert(payload, { onConflict: 'contact_id,custom_field_id' });
+      }
+
+      const { data: oldField } = await supabase
+        .from('custom_fields')
+        .select('id')
+        .eq('field_name', 'Lead Status')
+        .maybeSingle();
+
+      if (oldField) {
+        const oldPayload = ids.map((contactId) => ({
+          contact_id: contactId,
+          custom_field_id: oldField.id,
+          value: mappedStatus,
+        }));
+        await supabase
+          .from('contact_custom_values')
+          .upsert(oldPayload, { onConflict: 'contact_id,custom_field_id' });
+      }
+
+      const { data: pipelines } = await supabase
+        .from('pipelines')
+        .select('id')
+        .eq('account_id', accountId)
+        .order('created_at', { ascending: true })
+        .limit(1);
+
+      if (pipelines && pipelines.length > 0) {
+        const pipelineId = pipelines[0].id;
+        const { data: stagesList } = await supabase
+          .from('pipeline_stages')
+          .select('id, name')
+          .eq('pipeline_id', pipelineId);
+
+        const targetStage =
+          stagesList?.find((s) =>
+            s.name.toLowerCase().includes(stageName.toLowerCase()),
+          ) || stagesList?.[0];
+
+        if (targetStage) {
+          const { data: existingDeals } = await supabase
+            .from('deals')
+            .select('id, contact_id')
+            .in('contact_id', ids)
+            .eq('pipeline_id', pipelineId);
+
+          const existingDealMap: Record<string, string> = {};
+          existingDeals?.forEach((d) => {
+            if (d.contact_id) existingDealMap[d.contact_id] = d.id;
+          });
+
+          const dealsToUpdate = ids.filter((id) => existingDealMap[id]);
+          const dealsToInsert = ids.filter((id) => !existingDealMap[id]);
+
+          if (dealsToUpdate.length > 0) {
+            await supabase
+              .from('deals')
+              .update({
+                stage_id: targetStage.id,
+                updated_at: new Date().toISOString(),
+              })
+              .in('contact_id', dealsToUpdate)
+              .eq('pipeline_id', pipelineId);
+          }
+
+          if (dealsToInsert.length > 0) {
+            const newDeals = dealsToInsert.map((cId) => {
+              const c = contacts.find((ct) => ct.id === cId);
+              return {
+                title: c?.name || c?.phone || 'Customer Deal',
+                contact_id: cId,
+                pipeline_id: pipelineId,
+                account_id: accountId,
+                stage_id: targetStage.id,
+                value: 0,
+                currency: 'INR',
+                assigned_to: (c as any)?.assigned_to || user?.id || null,
+              };
+            });
+            await supabase.from('deals').insert(newDeals);
+          }
+        }
+      }
+
+      toast.success(`Moved ${ids.length} customers to ${stageName}!`);
+      setSelected(new Set());
+      fetchContacts();
+    } catch (err) {
+      console.error('Bulk move failed:', err);
+      toast.error('Failed to move customers to stage');
+    } finally {
+      setBulkProcessing(false);
+    }
+  }
+
+  async function handleBulkAssignExecutive(
+    executiveUserId: string,
+    executiveName: string,
+  ) {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    setBulkProcessing(true);
+    try {
+      await Promise.all([
+        supabase
+          .from('contacts')
+          .update({ assigned_to: executiveUserId })
+          .in('id', ids),
+        supabase
+          .from('conversations')
+          .update({ assigned_agent_id: executiveUserId })
+          .in('contact_id', ids),
+        supabase
+          .from('deals')
+          .update({ assigned_to: executiveUserId })
+          .in('contact_id', ids),
+      ]);
+
+      toast.success(`Assigned ${ids.length} customers to ${executiveName}!`);
+      setSelected(new Set());
+      fetchContacts();
+    } catch (err) {
+      console.error('Bulk assign failed:', err);
+      toast.error('Failed to assign customers');
+    } finally {
+      setBulkProcessing(false);
+    }
+  }
+
   async function handleBulkDelete() {
     const ids = [...selected];
     if (ids.length === 0) return;
@@ -645,28 +801,107 @@ export default function ContactsPage() {
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/40 px-4 py-2">
-          <p className="text-sm text-foreground">
-            {t('selectedCount', { count: selected.size })}
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 shadow-sm">
           <div className="flex items-center gap-2">
+            <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30 font-bold">
+              {selected.size} Selected
+            </Badge>
+            <span className="text-xs text-muted-foreground hidden sm:inline">
+              Bulk actions for selected customers:
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Move to Stage (ELBR) */}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="inline-flex items-center gap-1.5 rounded-md bg-card border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted shadow-sm"
+              >
+                <Activity className="size-3.5 text-primary" />
+                <span>Move to Stage (ELBR)</span>
+                <ChevronDown className="size-3 text-muted-foreground" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-popover border-border">
+                <DropdownMenuItem
+                  onClick={() => handleBulkMoveStage("Enquiry")}
+                  disabled={bulkProcessing}
+                  className="text-xs cursor-pointer text-blue-500 font-medium"
+                >
+                  <span className="size-2 rounded-full bg-blue-500 mr-2" />
+                  🔵 Move to Enquiry
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleBulkMoveStage("Lead")}
+                  disabled={bulkProcessing}
+                  className="text-xs cursor-pointer text-amber-500 font-medium"
+                >
+                  <span className="size-2 rounded-full bg-amber-500 mr-2" />
+                  🟡 Move to Lead (Follow-up)
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleBulkMoveStage("Booking")}
+                  disabled={bulkProcessing}
+                  className="text-xs cursor-pointer text-emerald-500 font-medium"
+                >
+                  <span className="size-2 rounded-full bg-emerald-500 mr-2" />
+                  🟢 Move to Booking (Advance Paid)
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleBulkMoveStage("Retail")}
+                  disabled={bulkProcessing}
+                  className="text-xs cursor-pointer text-purple-500 font-medium"
+                >
+                  <span className="size-2 rounded-full bg-purple-500 mr-2" />
+                  🟣 Move to Retail (Delivery)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Bulk Assign Executive (Admin only) */}
+            {isAdminOrOwner && members.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className="inline-flex items-center gap-1.5 rounded-md bg-card border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted shadow-sm"
+                >
+                  <UserCheck className="size-3.5 text-emerald-500" />
+                  <span>Assign Executive</span>
+                  <ChevronDown className="size-3 text-muted-foreground" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-popover border-border max-h-60 overflow-y-auto">
+                  {members.map((m) => (
+                    <DropdownMenuItem
+                      key={m.user_id}
+                      onClick={() => handleBulkAssignExecutive(m.user_id, m.full_name)}
+                      disabled={bulkProcessing}
+                      className="text-xs cursor-pointer"
+                    >
+                      <UserCheck className="size-3.5 mr-2 text-primary" />
+                      {m.full_name} ({m.role})
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setSelected(new Set())}
-              className="text-muted-foreground hover:text-foreground"
+              className="text-xs text-muted-foreground hover:text-foreground h-8"
             >
-              {t('clearSelection')}
+              Clear
             </Button>
+
             <GatedButton
               variant="destructive"
               size="sm"
               canAct={canEdit}
               gateReason="delete contacts"
               onClick={() => setBulkDeleteOpen(true)}
+              className="h-8 text-xs"
             >
-              <Trash2 className="size-4" />
-              {t('deleteSelected')}
+              <Trash2 className="size-3.5 mr-1" />
+              Delete
             </GatedButton>
           </div>
         </div>

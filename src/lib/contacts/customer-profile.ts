@@ -1,4 +1,4 @@
-﻿import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface CustomerProfileData {
   name: string;
@@ -37,11 +37,10 @@ export const PRODUCTION_CAPACITIES = [
 ];
 
 export const LEAD_STATUSES = [
-  'New Enquiry',
-  'In Follow-up',
-  'Quotation Sent',
-  'Demo / Factory Visit',
-  'Booking / Closed Won',
+  'Enquiry (New Enquiry)',
+  'Lead (In Follow-up / Demo)',
+  'Booking (Booking / Advance Paid)',
+  'Retail (Retail / Delivery Completed)',
   'Lost / Not Interested',
 ];
 
@@ -206,7 +205,72 @@ export async function saveCustomerProfile(
     }
   }
 
-  // 3. Optional note
+  // 3. Sync with Pipeline Deals
+  if (data.leadStatus) {
+    try {
+      const { data: pipelines } = await supabase
+        .from('pipelines')
+        .select('id')
+        .eq('account_id', accountId)
+        .order('created_at', { ascending: true })
+        .limit(1);
+
+      if (pipelines && pipelines.length > 0) {
+        const pipelineId = pipelines[0].id;
+        const { data: stages } = await supabase
+          .from('pipeline_stages')
+          .select('id, name, position')
+          .eq('pipeline_id', pipelineId)
+          .order('position', { ascending: true });
+
+        if (stages && stages.length > 0) {
+          const statusLower = data.leadStatus.toLowerCase();
+          let targetStage = stages[0].id; // default Enquiry
+
+          if (statusLower.includes('book') || statusLower.includes('won')) {
+            targetStage = stages.find((s) => s.name.toLowerCase().includes('book'))?.id || targetStage;
+          } else if (statusLower.includes('retail') || statusLower.includes('deliver')) {
+            targetStage = stages.find((s) => s.name.toLowerCase().includes('retail'))?.id || targetStage;
+          } else if (statusLower.includes('lead') || statusLower.includes('follow') || statusLower.includes('demo')) {
+            targetStage = stages.find((s) => s.name.toLowerCase().includes('lead'))?.id || targetStage;
+          } else if (statusLower.includes('enquiry')) {
+            targetStage = stages.find((s) => s.name.toLowerCase().includes('enquiry'))?.id || targetStage;
+          }
+
+          const { data: existingDeal } = await supabase
+            .from('deals')
+            .select('id')
+            .eq('contact_id', contactId)
+            .eq('pipeline_id', pipelineId)
+            .maybeSingle();
+
+          if (existingDeal) {
+            await supabase
+              .from('deals')
+              .update({ stage_id: targetStage, title: data.name || data.phone || 'Customer Deal', updated_at: new Date().toISOString() })
+              .eq('id', existingDeal.id);
+          } else {
+            await supabase.from('deals').insert({
+              title: data.name || data.phone || 'Customer Deal',
+              contact_id: contactId,
+              pipeline_id: pipelineId,
+              user_id: userId,
+              account_id: accountId,
+              stage_id: targetStage,
+              value: 0,
+              currency: 'INR',
+              status: 'open',
+              assigned_to: userId,
+            });
+          }
+        }
+      }
+    } catch {
+      // Non-critical background sync
+    }
+  }
+
+  // 4. Optional note
   if (data.notes && data.notes.trim()) {
     await supabase.from('contact_notes').insert({
       contact_id: contactId,

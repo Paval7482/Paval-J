@@ -95,6 +95,7 @@ const navItems: NavItem[] = [
   { href: "/dashboard", labelKey: "dashboard", icon: LayoutDashboard },
   { href: "/inbox", labelKey: "inbox", icon: MessageSquare },
   { href: "/calls", labelKey: "calls", icon: PhoneCall },
+  { href: "/meta-leads", labelKey: "metaLeads", icon: Radio },
   { href: "/notifications", labelKey: "notifications", icon: Bell },
   { href: "/contacts", labelKey: "contacts", icon: Users },
   { href: "/pipelines", labelKey: "pipelines", icon: GitBranch },
@@ -189,14 +190,23 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       >
         {/* Logo row. On mobile we put a close button here; on desktop the
             close button is hidden since the sidebar is always-visible. */}
-        <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <MessageSquare className="h-4 w-4" />
+        <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
+          <Link href="/dashboard" className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/5 p-1 border border-border/80 shadow-xs overflow-hidden">
+              <img
+                src="/logo.png"
+                alt="Sri Lakshmi Industries"
+                className="h-full w-full object-contain"
+              />
             </div>
-            <span className="text-sm font-semibold text-foreground">
-              {t("title")}
-            </span>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-bold tracking-tight text-foreground truncate">
+                Sri Lakshmi Industries
+              </span>
+              <span className="text-[10px] font-semibold text-muted-foreground tracking-wider uppercase">
+                CRM Portal
+              </span>
+            </div>
           </Link>
           <button
             type="button"

@@ -139,12 +139,13 @@ async function handleMyTellyCall(req: NextRequest) {
     const displayStatus = isMissed ? "Missed" : "Connected";
 
     let assignedUserId = adminUserId; // Default to Admin for missed calls or unassigned
+    let assignedProfileId: string | null = null;
 
     if (!isMissed && agentName) {
       // Look for a matching executive profile by name or email
       const { data: profiles } = await admin
         .from("profiles")
-        .select("user_id, full_name, email")
+        .select("id, user_id, full_name, email")
         .eq("account_id", accountId);
 
       if (profiles && profiles.length > 0) {
@@ -152,12 +153,23 @@ async function handleMyTellyCall(req: NextRequest) {
         const matched = profiles.find(
           (p) =>
             p.full_name?.toLowerCase().includes(needle) ||
+            needle.includes(p.full_name?.toLowerCase() || "___") ||
             p.email?.toLowerCase().includes(needle),
         );
         if (matched) {
           assignedUserId = matched.user_id;
+          assignedProfileId = matched.id;
         }
       }
+    }
+
+    if (!assignedProfileId && assignedUserId) {
+      const { data: p } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("user_id", assignedUserId)
+        .maybeSingle();
+      if (p) assignedProfileId = p.id;
     }
 
     // 6. Contact Lookup or Create
@@ -172,7 +184,7 @@ async function handleMyTellyCall(req: NextRequest) {
         .from("contacts")
         .insert({
           account_id: accountId,
-          user_id: adminUserId,
+          user_id: assignedUserId,
           name: contactName,
           phone: formattedPhone,
         })
@@ -224,7 +236,7 @@ async function handleMyTellyCall(req: NextRequest) {
         await admin.from("deals").insert({
           account_id: accountId,
           user_id: assignedUserId,
-          assigned_to: assignedUserId,
+          assigned_to: assignedProfileId,
           pipeline_id: pipelineId,
           stage_id: stageId,
           contact_id: contactId,

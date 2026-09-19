@@ -1018,13 +1018,27 @@ async function dispatchInstantLeadAlert(args: {
       .limit(1)
 
     if (!existingDeals || existingDeals.length === 0) {
+      const activeExecs = [
+        { name: 'BASKAR', profile_id: '8b6f940b-e148-4261-a300-af35e8426bf2', user_id: 'a909751b-7022-4e47-aaed-c7cfc5acd526' },
+        { name: 'BALA', profile_id: '1c245b47-b1d2-4de4-a717-03ff249a308d', user_id: '35760e9c-b82a-40d0-a6ee-ca1804d72a90' },
+        { name: 'SATHEESH', profile_id: 'fac4a28c-d56f-4f22-979c-b288cbdddaae', user_id: 'a09eac1f-b95b-4a8c-8c4f-cc5822b32ea1' },
+        { name: 'KARTHICK', profile_id: '85f11697-ecc9-4447-ab69-8296421f144a', user_id: '944ed513-3b24-4daf-a159-66b37b63a967' },
+        { name: 'NALLAKAMAN', profile_id: '012ae00b-7f53-4c82-b5e9-fbed4ffb8c6d', user_id: 'bc6a28a6-7f3c-4ba2-974e-072b192e6c02' },
+        { name: 'SUBASH', profile_id: '7467ba31-21e8-4983-b475-c7a273486411', user_id: 'b8db6f80-377c-41b9-bc79-458ed7733230' },
+        { name: 'karthick V', profile_id: '078f5986-1954-4e72-8833-7e90a1eb3361', user_id: '88d7c88c-c037-4a3c-a521-f73745e8f7b3' }
+      ]
+      const chosenExec = activeExecs[Math.floor(Date.now() / 1000) % activeExecs.length]
+
       await supabaseAdmin().from('deals').insert({
         account_id: accountId,
-        user_id: configOwnerUserId,
+        user_id: chosenExec.user_id,
+        assigned_to: chosenExec.profile_id,
         contact_id: contactRecord.id,
+        pipeline_id: 'fd0a2c15-7fcd-4207-8158-a79201a42d2b',
+        stage_id: '06c3bf09-328a-4122-8d78-fb15669be084',
         title: `Murukku Machine Lead - ${parsedLead.name || contactRecord.name || cleanCustomerPhone}`,
         value: 0,
-        stage: 'lead',
+        stage: 'enquiry',
         status: 'open',
       })
     }
