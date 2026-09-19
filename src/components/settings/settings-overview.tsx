@@ -174,6 +174,25 @@ export function SettingsOverview({
       ),
     },
     {
+      section: 'lead-routing',
+      loading: false,
+      subtitle: (
+        <>
+          <StatusDot tone="ok" /> Round-Robin Auto Assignment
+        </>
+      ),
+    },
+    {
+      section: 'daily-reports',
+      loading: false,
+      subtitle: 'Daily 6:05 PM Sales Report',
+    },
+    {
+      section: 'meta-leads',
+      loading: false,
+      subtitle: 'Meta Instant Form Ingestion',
+    },
+    {
       section: 'members',
       loading: countsLoading,
       subtitle:
@@ -269,7 +288,7 @@ export function SettingsOverview({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold text-foreground">
-                  {tSections(section)}
+                  {meta.label || tSections(section)}
                 </span>
                 <span className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                   {loading ? (
