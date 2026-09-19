@@ -13,7 +13,7 @@ export async function GET() {
     // Fetch team members to assist linking user profiles
     const { data: profiles } = await admin
       .from("profiles")
-      .select("id, user_id, full_name, role")
+      .select("*")
       .order("full_name", { ascending: true });
 
     return NextResponse.json({
