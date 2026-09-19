@@ -223,6 +223,38 @@ export default function FlowsPage() {
         </GatedButton>
       </header>
 
+      {/* Featured Lead Assignment Flow Banner */}
+      <div className="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/10 via-background to-amber-500/10 p-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-lg bg-primary/10 text-primary border border-primary/20 shrink-0 mt-0.5">
+              <Workflow className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-foreground">
+                  WhatsApp & Meta Lead Auto-Assignment Flow
+                </h3>
+                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-[10px] py-0 px-1.5 h-4">
+                  Active (Round-Robin)
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Automatically rotates customer enquiries across active Sales Executives (Satheesh, Subash, Baskar, Bala, Nallakaman) with instant WhatsApp action alerts and MD Sir notifications.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => router.push("/settings?tab=lead-routing")}
+            className="shrink-0 gap-1.5 text-xs bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            Configure Executives & MD Numbers
+            <Workflow className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+
       {flows.length === 0 ? (
         <EmptyState
           onCreate={() => setCreateOpen(true)}

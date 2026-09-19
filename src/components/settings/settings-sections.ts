@@ -12,6 +12,7 @@ import {
   UsersRound,
   Zap,
   BellRing,
+  Workflow,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -29,6 +30,7 @@ export const SETTINGS_SECTIONS = [
   'security',
   'appearance',
   'whatsapp',
+  'lead-routing',
   'meta-leads',
   'daily-reports',
   'templates',
@@ -57,6 +59,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   security: { id: 'security', label: 'Login & security', icon: Shield, group: 'account' },
   appearance: { id: 'appearance', label: 'Appearance', icon: Palette, group: 'account' },
   whatsapp: { id: 'whatsapp', label: 'WhatsApp', icon: PlugZap, group: 'workspace' },
+  'lead-routing': { id: 'lead-routing', label: 'Lead Assignment Flow', icon: Workflow, group: 'workspace' },
   'meta-leads': { id: 'meta-leads', label: 'Meta Lead Ads', icon: Radio, group: 'workspace' },
   'daily-reports': { id: 'daily-reports', label: 'Daily Reports (6:05 PM)', icon: BellRing, group: 'workspace' },
   templates: { id: 'templates', label: 'Templates', icon: FileText, group: 'workspace' },

@@ -16,6 +16,7 @@ import { TemplateManager } from '@/components/settings/template-manager';
 import { QuickRepliesManager } from '@/components/settings/quick-replies-manager';
 import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel';
 import { MetaLeadsPanel } from '@/components/settings/meta-leads-panel';
+import { LeadRoutingPanel } from '@/components/settings/lead-routing-panel';
 import { DealsSettings } from '@/components/settings/deals-settings';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
@@ -77,6 +78,7 @@ function SettingsPageInner() {
     security: <SecurityPanel />,
     appearance: <AppearancePanel />,
     whatsapp: <WhatsAppConfig />,
+    'lead-routing': <LeadRoutingPanel />,
     'meta-leads': <MetaLeadsPanel />,
     'daily-reports': <DailyReportSettings />,
     templates: <TemplateManager />,
