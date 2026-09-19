@@ -15,6 +15,12 @@ import {
   handleTemplateWebhookChange,
   isTemplateWebhookField,
 } from '@/lib/whatsapp/template-webhook'
+import {
+  getNextRoundRobinExecutive,
+  findExecutiveByUserId,
+  sendLeadAlerts,
+  MD_SIR_PHONE,
+} from '@/lib/whatsapp/lead-alert'
 
 // The `after()` callback in POST runs within this route's max duration.
 // Inbound processing can fan out to per-media Meta verification calls, so
@@ -990,17 +996,26 @@ async function dispatchInstantLeadAlert(args: {
   if (!phoneNumberId) return
 
   const cleanCustomerPhone = senderPhone.replace(/[^0-9]/g, '')
-  const executivePhone = '919994440905'
 
-  // Never send alert if the customer messaging is the executive themselves
-  if (cleanCustomerPhone === executivePhone) return
+  // Never send alert if the customer messaging is MD Sir or the system itself
+  if (cleanCustomerPhone === MD_SIR_PHONE) return
 
   const parsedLead = parseMetaLeadText(inboundText)
+  const customerDisplayName =
+    parsedLead.name ||
+    contactRecord.name ||
+    contactProfileName ||
+    `+${cleanCustomerPhone}`
 
   // 1. If Meta Lead Form contains customer's real name, update contact in DB
   if (parsedLead.name) {
     const currentName = contactRecord.name || ''
-    if (!currentName || currentName === contactRecord.phone || currentName === 'WhatsApp Customer' || currentName.startsWith('+')) {
+    if (
+      !currentName ||
+      currentName === contactRecord.phone ||
+      currentName === 'WhatsApp Customer' ||
+      currentName.startsWith('+')
+    ) {
       await supabaseAdmin()
         .from('contacts')
         .update({ name: parsedLead.name })
@@ -1009,7 +1024,36 @@ async function dispatchInstantLeadAlert(args: {
     }
   }
 
-  // 2. Ensure pipeline deal exists for Sri Lakshmi Industries
+  // 2. Resolve / Assign Executive via Round-Robin
+  let chosenExec: any = null
+  try {
+    const { data: convRow } = await supabaseAdmin()
+      .from('conversations')
+      .select('id, assigned_agent_id')
+      .eq('id', conversationId)
+      .maybeSingle()
+
+    if (convRow?.assigned_agent_id) {
+      chosenExec = findExecutiveByUserId(convRow.assigned_agent_id)
+    }
+
+    if (!chosenExec) {
+      chosenExec = getNextRoundRobinExecutive()
+      // Auto-assign the conversation to the chosen executive
+      await supabaseAdmin()
+        .from('conversations')
+        .update({ assigned_agent_id: chosenExec.user_id })
+        .eq('id', conversationId)
+      console.info(
+        `[RoundRobin] Assigned conversation ${conversationId} to ${chosenExec.name} (${chosenExec.user_id})`
+      )
+    }
+  } catch (assignErr) {
+    console.warn('[webhook] round-robin conversation assignment error:', assignErr)
+    chosenExec = getNextRoundRobinExecutive()
+  }
+
+  // 3. Ensure pipeline deal exists for Sri Lakshmi Industries and is assigned
   try {
     const { data: existingDeals } = await supabaseAdmin()
       .from('deals')
@@ -1018,17 +1062,6 @@ async function dispatchInstantLeadAlert(args: {
       .limit(1)
 
     if (!existingDeals || existingDeals.length === 0) {
-      const activeExecs = [
-        { name: 'BASKAR', profile_id: '8b6f940b-e148-4261-a300-af35e8426bf2', user_id: 'a909751b-7022-4e47-aaed-c7cfc5acd526' },
-        { name: 'BALA', profile_id: '1c245b47-b1d2-4de4-a717-03ff249a308d', user_id: '35760e9c-b82a-40d0-a6ee-ca1804d72a90' },
-        { name: 'SATHEESH', profile_id: 'fac4a28c-d56f-4f22-979c-b288cbdddaae', user_id: 'a09eac1f-b95b-4a8c-8c4f-cc5822b32ea1' },
-        { name: 'KARTHICK', profile_id: '85f11697-ecc9-4447-ab69-8296421f144a', user_id: '944ed513-3b24-4daf-a159-66b37b63a967' },
-        { name: 'NALLAKAMAN', profile_id: '012ae00b-7f53-4c82-b5e9-fbed4ffb8c6d', user_id: 'bc6a28a6-7f3c-4ba2-974e-072b192e6c02' },
-        { name: 'SUBASH', profile_id: '7467ba31-21e8-4983-b475-c7a273486411', user_id: 'b8db6f80-377c-41b9-bc79-458ed7733230' },
-        { name: 'karthick V', profile_id: '078f5986-1954-4e72-8833-7e90a1eb3361', user_id: '88d7c88c-c037-4a3c-a521-f73745e8f7b3' }
-      ]
-      const chosenExec = activeExecs[Math.floor(Date.now() / 1000) % activeExecs.length]
-
       await supabaseAdmin().from('deals').insert({
         account_id: accountId,
         user_id: chosenExec.user_id,
@@ -1036,17 +1069,20 @@ async function dispatchInstantLeadAlert(args: {
         contact_id: contactRecord.id,
         pipeline_id: 'fd0a2c15-7fcd-4207-8158-a79201a42d2b',
         stage_id: '06c3bf09-328a-4122-8d78-fb15669be084',
-        title: `Murukku Machine Lead - ${parsedLead.name || contactRecord.name || cleanCustomerPhone}`,
+        title: `Murukku Machine Lead - ${customerDisplayName}`,
         value: 0,
         stage: 'enquiry',
         status: 'open',
       })
+      console.info(
+        `[RoundRobin] Created deal for ${customerDisplayName} assigned to ${chosenExec.name}`
+      )
     }
   } catch (dealErr) {
     console.warn('[webhook] deal auto-create failed (non-fatal):', dealErr)
   }
 
-  // 3. Determine if we should send instant WhatsApp alert
+  // 4. Determine if we should send instant WhatsApp alert
   let isReturningLead = false
   if (!isFirstInboundMessage) {
     const { data: recentMsgs } = await supabaseAdmin()
@@ -1069,7 +1105,7 @@ async function dispatchInstantLeadAlert(args: {
   const shouldAlert = isFirstInboundMessage || parsedLead.isLeadForm || isReturningLead
   if (!shouldAlert) return
 
-  // 4. Throttle check: Avoid duplicate alerts within 15 minutes for the same customer
+  // 5. Throttle check: Avoid duplicate alerts within 15 minutes for the same customer
   try {
     const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString()
     const { data: recentAlert } = await supabaseAdmin()
@@ -1082,37 +1118,30 @@ async function dispatchInstantLeadAlert(args: {
       .maybeSingle()
 
     if (recentAlert) {
-      console.info(`[webhook] Lead alert throttled for customer ${cleanCustomerPhone} (alerted in last 15m)`)
+      console.info(
+        `[webhook] Lead alert throttled for customer ${cleanCustomerPhone} (alerted in last 15m)`
+      )
       return
     }
 
-    const customerDisplayName = parsedLead.name || contactRecord.name || contactProfileName || `+${cleanCustomerPhone}`
     const msgSnippet = (inboundText || `[${messageType}]`).trim().slice(0, 300)
 
-    let alertMsg = `🔥 *NEW ENQUIRY ALERT - Sri Lakshmi Industries*\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `👤 *Customer:* ${customerDisplayName}\n` +
-      `📱 *Phone:* +${cleanCustomerPhone}\n`
-    if (parsedLead.businessType) {
-      alertMsg += `🏭 *Requirement:* ${parsedLead.businessType}\n`
-    }
-    if (parsedLead.state) {
-      alertMsg += `📍 *Location:* ${parsedLead.state}\n`
-    }
-    alertMsg += `💬 *Message:* "${msgSnippet}"\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `📞 *Call Customer:* +${cleanCustomerPhone}\n` +
-      `💬 *WhatsApp Chat:* https://wa.me/${cleanCustomerPhone}`
-
-    await sendTextMessage({
+    // Dispatch dual alerts: MD Sir + Assigned Executive (Bilingual Tamil & English)
+    await sendLeadAlerts({
+      customerName: customerDisplayName,
+      customerPhone: cleanCustomerPhone,
+      messageText: msgSnippet,
+      requirement: parsedLead.businessType,
+      location: parsedLead.state,
+      assignedExec: chosenExec,
       accessToken,
       phoneNumberId,
-      to: executivePhone,
-      text: alertMsg,
     })
-    console.info(`[webhook] Instant lead alert successfully sent to executive ${executivePhone} for customer ${cleanCustomerPhone}`)
+    console.info(
+      `[webhook] Lead alerts successfully dispatched to MD Sir and Executive ${chosenExec.name} (+${chosenExec.phone}) for customer ${cleanCustomerPhone}`
+    )
   } catch (alertErr) {
-    console.error('[webhook] Failed to send instant lead alert to executive:', alertErr)
+    console.error('[webhook] Failed to dispatch lead alerts:', alertErr)
   }
 }
 

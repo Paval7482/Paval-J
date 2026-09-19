@@ -489,48 +489,6 @@ async function executeHandoff(
     assigned_to: cfg.assign_to ?? null,
   });
 
-  // Automated Lead Alert to Executive WhatsApp (919994440905)
-  try {
-    const [{ data: contact }, { data: waCfg }] = await Promise.all([
-      db.from("contacts").select("name, phone").eq("id", run.contact_id).maybeSingle(),
-      db.from("whatsapp_config").select("access_token, phone_number_id").limit(1).maybeSingle(),
-    ]);
-
-    if (waCfg && contact && contact.phone) {
-      const rawToken = decrypt(waCfg.access_token);
-      const cleanPhone = contact.phone.replace(/[^0-9]/g, "");
-      const leadNote = cfg.note || "Murukku Machine Lead";
-
-      // Collect customer selections made during the flow
-      const selections = Object.entries(run.vars || {})
-        .filter(([k, v]) => !k.startsWith("_") && typeof v === "string" && !k.startsWith("submit"))
-        .map(([, v]) => `• ${v}`)
-        .join("\n");
-
-      let alertMsg = `🔥 *NEW LEAD ALERT - Sri Lakshmi Industries*\n━━━━━━━━━━━━━━━━━━━━━━\n👤 *Customer:* ${contact.name || "WhatsApp Customer"}\n📱 *Phone:* +${cleanPhone}\n`;
-      if (selections) {
-        alertMsg += `📋 *Requirements Selected:*\n${selections}\n`;
-      }
-      alertMsg += `📝 *Details:* ${leadNote}\n━━━━━━━━━━━━━━━━━━━━━━\n👉 *Click to Call / Chat:* https://wa.me/${cleanPhone}`;
-
-      let targetPhone = (cfg.notify_phone || "").replace(/[^0-9]/g, "");
-      if (targetPhone.length === 10) {
-        targetPhone = "91" + targetPhone;
-      }
-
-      if (targetPhone) {
-        await sendTextMessage({
-          accessToken: rawToken,
-          phoneNumberId: waCfg.phone_number_id,
-          to: targetPhone,
-          text: alertMsg,
-        });
-      }
-    }
-  } catch (alertErr) {
-    console.error("[Flows Engine] Failed to send executive lead alert:", alertErr);
-  }
-
   await endRun(db, run.id, "handed_off", "handoff_node");
 }
 

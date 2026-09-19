@@ -3,6 +3,12 @@ import { supabaseAdmin } from "@/lib/flows/admin-client";
 import { findExistingContact } from "@/lib/contacts/dedupe";
 import { sendTextMessage } from "@/lib/whatsapp/meta-api";
 import { decrypt } from "@/lib/whatsapp/encryption";
+import {
+  sendLeadAlerts,
+  findExecutiveByUserId,
+  findExecutiveByProfileId,
+  getNextRoundRobinExecutive,
+} from "@/lib/whatsapp/lead-alert";
 
 export const maxDuration = 60;
 
@@ -470,6 +476,27 @@ async function processLeadEntry({
       console.log(`[Meta Lead Ads] WhatsApp Welcome message sent to ${formattedPhone}`);
     } catch (waErr) {
       console.warn(`[Meta Lead Ads] WhatsApp auto-send skipped/failed:`, waErr);
+    }
+
+    // 9. Dispatch Dual Lead Alerts to MD Sir and Assigned Executive
+    try {
+      const assignedExec =
+        findExecutiveByUserId(assignedUserId) ||
+        findExecutiveByProfileId(assignedProfileId) ||
+        getNextRoundRobinExecutive();
+
+      await sendLeadAlerts({
+        customerName: leadName || formattedPhone,
+        customerPhone: formattedPhone,
+        messageText: `Meta Ad Form (${language}): ${campaignName} - ${formName}`,
+        requirement: `${businessType}${capacity ? ` (${capacity})` : ""}`,
+        location: `${district ? `${district}, ` : ""}${state}`,
+        assignedExec,
+        accessToken: token,
+        phoneNumberId: waPhoneId,
+      });
+    } catch (alertErr) {
+      console.error("[Meta Lead Ads] Failed to dispatch lead alerts:", alertErr);
     }
   }
 
