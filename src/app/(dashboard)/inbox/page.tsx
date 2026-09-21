@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   CONVERSATION_SELECT,
   normalizeConversation,
+  normalizeConversations,
 } from "@/lib/inbox/conversations";
 import type { Conversation, Message, Contact, ConversationStatus } from "@/types";
 import { useRealtime } from "@/hooks/use-realtime";
@@ -284,15 +285,12 @@ function InboxPageInner() {
         setResyncToken((n) => n + 1);
       }
     };
-    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 
-  const handleManualRefresh = useCallback(() => {
-    setResyncToken((n) => n + 1);
-  }, []);
+  const [loadingConversations, setLoadingConversations] = useState(true);
 
   const handleConversationsLoaded = useCallback(
     (loaded: Conversation[]) => {
@@ -322,6 +320,39 @@ function InboxPageInner() {
     },
     [deepLinkConvId, activeConversation?.id]
   );
+
+  const fetchAllConversations = useCallback(async () => {
+    setLoadingConversations(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("conversations")
+        .select(CONVERSATION_SELECT)
+        .order("last_message_at", { ascending: false });
+
+      if (error) {
+        console.error("Failed to fetch conversations:", error);
+        return;
+      }
+
+      if (data) {
+        const normalized = normalizeConversations(data);
+        handleConversationsLoaded(normalized);
+      }
+    } catch (err) {
+      console.error("Error fetching conversations:", err);
+    } finally {
+      setLoadingConversations(false);
+    }
+  }, [handleConversationsLoaded]);
+
+  useEffect(() => {
+    fetchAllConversations();
+  }, [fetchAllConversations, resyncToken]);
+
+  const handleManualRefresh = useCallback(() => {
+    setResyncToken((n) => n + 1);
+  }, []);
 
   const handleSelectConversation = useCallback(
     (conv: Conversation) => {
@@ -471,6 +502,7 @@ function InboxPageInner() {
             conversations={conversations}
             onSelectConversation={handleSelectConversation}
             onRefresh={handleManualRefresh}
+            loading={loadingConversations}
           />
         </div>
       ) : (

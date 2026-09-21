@@ -1,6 +1,25 @@
 import { sendTextMessage } from "@/lib/whatsapp/meta-api";
 import { supabaseAdmin } from "@/lib/automations/admin-client";
 
+export type SupportedLanguage = "all_in_one" | "ta" | "en" | "hi" | "kn" | "ml" | "te";
+
+export interface LanguageOption {
+  code: SupportedLanguage;
+  label: string;
+  native: string;
+  flag: string;
+}
+
+export const SUPPORTED_LANGUAGES: LanguageOption[] = [
+  { code: "all_in_one", label: "All-in-One Multi-Language", native: "✨ 2nd Greeting (All-in-One)", flag: "🌟" },
+  { code: "ta", label: "Tamil", native: "தமிழ்", flag: "🇮🇳" },
+  { code: "en", label: "English", native: "English", flag: "🌐" },
+  { code: "hi", label: "Hindi", native: "हिंदी", flag: "🇮🇳" },
+  { code: "kn", label: "Kannada", native: "ಕನ್ನಡ", flag: "🇮🇳" },
+  { code: "ml", label: "Malayalam", native: "മലയാളം", flag: "🇮🇳" },
+  { code: "te", label: "Telugu", native: "తెలుగు", flag: "🇮🇳" },
+];
+
 export interface SalesExecutive {
   id: string;
   name: string;
@@ -10,6 +29,7 @@ export interface SalesExecutive {
   user_id?: string;
   active: boolean;
   role?: string;
+  languages?: SupportedLanguage[];
 }
 
 export interface AdminRecipient {
@@ -19,15 +39,185 @@ export interface AdminRecipient {
   active: boolean;
 }
 
+export const DEFAULT_ALL_IN_ONE_WELCOME_TEMPLATE = `வணக்கம்! 🙏 *Sri Lakshmi Industries*-க்கு தங்களை அன்போடு வரவேற்கிறோம்! 🌾
+(முன்னணி வணிக ரீதியான முறுக்கு மெஷின் தயாரிப்பாளர்)
+🏆 20+ வருடங்களின் தயாரிப்பு அனுபவம்
+💎 4,000+ திருப்திகரமான வாடிக்கையாளர்கள்
+🚀 1,000+ புதிய உணவுத் தொழில் முனைவோர்கள் (Startups)!
+───────────────────
+Welcome to *Sri Lakshmi Industries*! 🙏🌾
+(Leading Manufacturer of Commercial Murukku Machines)
+🏆 20+ Years of Manufacturing Excellence
+💎 4,000+ Happy Customers Worldwide
+🚀 1,000+ Successful Food Startups Created!
+───────────────────
+నమస్కారం! *శ్రీ లక్ష్మి ఇండస్ట్రీస్ (Sri Lakshmi Industries)* కు స్వాగతం! 🙏🌾
+(కమర్షియల్ మురుకు తయారీ మెషీన్ల ప్రముఖ తయారీదారు)
+🏆 20+ సంవత్సరాల తయారీ అనుభవం
+💎 4,000+ పైగా సంతృప్తి చెందిన కస్టమర్లు
+🚀 1,000+ పైగా విజయవంతమైన కొత్త స్టార్టప్‌లు!
+───────────────────
+നമസ്കാരം! *ശ്രീ ലക്ഷ്മി ഇൻഡസ്ട്രീസിലേക്ക് (Sri Lakshmi Industries)* സ്വാഗതം! 🙏🌾
+(കൊമേഴ്സ്യൽ മുറുക്ക് നിർമ്മാണ മെഷീനുകളുടെ പ്രമുഖ നിർമ്മാതാക്കൾ)
+🏆 20+ വർഷത്തെ നിർമ്മാണ പരിചയം
+💎 4,000+ സംതൃപ്തരായ ഉപഭോക്താക്കൾ
+🚀 1,000+ വിജയകരമായ പുതിയ സംരംഭങ്ങൾ!
+───────────────────
+नमस्ते! *श्री लक्ष्मी इंडस्ट्रीज (Sri Lakshmi Industries)* में आपका स्वागत है! 🙏🌾
+(कमर्शियल मुरुक्कू मेकिंग मशीन के अग्रणी निर्माता)
+🏆 20+ वर्षों का निर्माण अनुभव
+💎 4,000+ संतुष्ट ग्राहक
+🚀 1,000+ सफल नए फूड स्टार्टअप्स!
+───────────────────
+🌐 *Official Website:* https://www.srilakshmiindustries.com
+📺 *YouTube Demo Videos:* https://youtube.com/@murukkumachineprakashsrila833
+📞 *Direct Helpline / Assigned Executive:* +{{executive_phone}} ({{executive_name}})
+
+Our sales executive will call you directly in a few minutes! / எங்கள் விற்பனை பிரதிநிதி விரைவில் உங்களை நேரடி அழைப்பில் தொடர்பு கொள்வார்! 🙏`;
+
 export interface LeadRoutingConfig {
   enabled: boolean;
-  assignmentMethod: "round_robin" | "direct";
+  assignmentMethod: "round_robin" | "direct" | "language_match";
+  welcomeGreetingMode?: "all_in_one" | "language_specific";
   notifyAdmin: boolean;
   notifyExecutive: boolean;
+  notifyCustomer?: boolean;
   adminRecipients: AdminRecipient[];
   executives: SalesExecutive[];
   slaMinutes: number;
   lastAssignedIndex: number;
+  executiveAlertTemplate?: string;
+  adminAlertTemplate?: string;
+  customerWelcomeTemplate?: string;
+  multilingualCustomerTemplates?: Record<SupportedLanguage, string>;
+}
+
+export const MULTILINGUAL_CUSTOMER_WELCOME_TEMPLATES: Record<SupportedLanguage, string> = {
+  all_in_one: DEFAULT_ALL_IN_ONE_WELCOME_TEMPLATE,
+
+  ta: `வணக்கம் {{customer_name}}! 🙏✨
+*ஸ்ரீ லக்ஷ்மி இண்டஸ்ட்ரீஸ் (Sri Lakshmi Industries)*-க்கு தங்களை அன்புடன் வரவேற்கிறோம்! 🏭🌾
+
+முறுக்கு மெஷின் சம்மந்தமாக உங்கள் அனைத்து கேள்விகளுக்கும் எங்கள் விற்பனை பிரதிநிதி *{{executive_name}}* நியமிக்கப்பட்டுள்ளார். உங்களை விரைவில் தொடர்பு கொள்வார் அல்லது இப்போது அவரை அழைக்க கீழே உள்ள பட்டனை / லிங்கை கிளிக் செய்யவும்:
+
+👤 விற்பனை பிரதிநிதி: {{executive_name}}
+📞 தொடர்பு எண்: +{{executive_phone}}
+💬 WhatsApp: https://wa.me/{{executive_phone}}
+📞 Direct Call: tel:+{{executive_phone}}
+
+- *ஸ்ரீ லக்ஷ்மி இண்டஸ்ட்ரீஸ், மதுரை*`,
+
+  en: `Hello {{customer_name}}! 🙏✨
+Welcome to *Sri Lakshmi Industries*! 🏭🌾
+
+Our sales executive *{{executive_name}}* has been assigned to assist you with all your queries regarding Murukku & Food Processing Machines. They will contact you shortly, or click below to connect right away:
+
+👤 Sales Executive: {{executive_name}}
+📞 Contact Number: +{{executive_phone}}
+💬 WhatsApp Chat: https://wa.me/{{executive_phone}}
+📞 Direct Call: tel:+{{executive_phone}}
+
+- *Sri Lakshmi Industries, Madurai*`,
+
+  hi: `नमस्ते {{customer_name}}! 🙏✨
+*श्री लक्ष्मी इंडस्ट्रीज (Sri Lakshmi Industries)* में आपका हार्दिक स्वागत है! 🏭🌾
+
+मुरुक्कु और खाद्य प्रसंस्करण मशीनों से संबंधित आपके सभी प्रश्नों में सहायता के लिए हमारे बिक्री प्रतिनिधि *{{executive_name}}* को नियुक्त किया गया है। वह शीघ्र ही आपसे संपर्क करेंगे या अभी बात करने के लिए नीचे क्लिक करें:
+
+👤 बिक्री प्रतिनिधि: {{executive_name}}
+📞 संपर्क नंबर: +{{executive_phone}}
+💬 WhatsApp: https://wa.me/{{executive_phone}}
+📞 अभी कॉल करें: tel:+{{executive_phone}}
+
+- *श्री लक्ष्मी इंडस्ट्रीज, मदुरै*`,
+
+  kn: `ನಮಸ್ಕಾರ {{customer_name}}! 🙏✨
+*ಶ್ರೀ ಲಕ್ಷ್ಮಿ ಇಂಡಸ್ಟ್ರೀಸ್ (Sri Lakshmi Industries)* ಗೆ ಆತ್ಮೀಯ ಸ್ವಾಗತ! 🏭🌾
+
+ಮುರುಕ್ಕು ಮತ್ತು ಆಹಾರ ಸಂಸ್ಕರಣಾ ಯಂತ್ರಗಳಿಗೆ ಸಂಬಂಧಿಸಿದ ನಿಮ್ಮ ಎಲ್ಲಾ ಪ್ರಶ್ನೆಗಳಿಗೆ ಉತ್ತರಿಸಲು ನಮ್ಮ ಮಾರಾಟ ಪ್ರತಿನಿಧಿ *{{executive_name}}* ಅವರನ್ನು ನಿಯೋಜಿಸಲಾಗಿದೆ. ಅವರು ಶೀಘ್ರದಲ್ಲೇ ನಿಮ್ಮನ್ನು ಸಂಪರ್ಕಿಸುತ್ತಾರೆ ಅಥವಾ ಈಗಲೇ ಮಾತನಾಡಲು ಕೆಳಗಿನ ಲಿಂಕ್ ಕ್ಲಿಕ್ ಮಾಡಿ:
+
+👤 ಮಾರಾಟ ಪ್ರತಿನಿಧಿ: {{executive_name}}
+📞 ಸಂಪರ್ಕ ಸಂಖ್ಯೆ: +{{executive_phone}}
+💬 WhatsApp: https://wa.me/{{executive_phone}}
+📞 ಕರೆ ಮಾಡಿ: tel:+{{executive_phone}}
+
+- *ಶ್ರೀ ಲಕ್ಷ್ಮಿ ಇಂಡಸ್ಟ್ರೀಸ್, ಮಧುರೈ*`,
+
+  ml: `നമസ്കാരം {{customer_name}}! 🙏✨
+*ശ്രീ ലക്ഷ്മി ഇൻഡസ്ട്രീസിലേക്ക് (Sri Lakshmi Industries)* സ്വാഗതം! 🏭🌾
+
+മുറുക്ക് & ഫുഡ് പ്രോസസ്സിംഗ് മെഷീനുകളുമായി ബന്ധപ്പെട്ട നിങ്ങളുടെ എല്ലാ സംശയങ്ങൾക്കും സഹായിക്കാൻ ഞങ്ങളുടെ സെയിൽസ് എക്സിക്യൂട്ടീവ് *{{executive_name}}* നിയോഗിക്കപ്പെട്ടിരിക്കുന്നു. അവർ ഉടൻ നിങ്ങളെ ബന്ധപ്പെടും അല്ലെങ്കിൽ ഇപ്പോൾ വിളിക്കാൻ താഴെയുള്ള ലിങ്കിൽ ക്ലിക്ക് ചെയ്യുക:
+
+👤 സെയിൽസ് എക്സിക്യൂട്ടീവ്: {{executive_name}}
+📞 ഫോൺ നമ്പർ: +{{executive_phone}}
+💬 WhatsApp: https://wa.me/{{executive_phone}}
+📞 ഇപ്പോൾ വിളിക്കുക: tel:+{{executive_phone}}
+
+- *ശ്രീ ലക്ഷ്മി ഇൻഡസ്ട്രീസ്, മധുര*`,
+
+  te: `నమస్కారం {{customer_name}}! 🙏✨
+*శ్రీ లక్ష్మి ఇండస్ట్రీస్ (Sri Lakshmi Industries)* కు స్వాగతం! 🏭🌾
+
+మురుక్కు మరియు ఫుడ్ ప్రాసెసింగ్ మెషీన్లకు సంబంధించిన మీ అన్ని ప్రశ్నలకు సహాయం చేయడానికి మా సేల్స్ ఎగ్జిక్యూటివ్ *{{executive_name}}* కేటాయించబడ్డారు. వారు త్వరలోనే మిమ్మల్ని సంప్రదిస్తారు లేదా ఇప్పుడే మాట్లాడటానికి క్రింది లింక్ క్లిక్ చేయండి:
+
+👤 సేల్స్ ఎగ్జిక్యూటివ్: {{executive_name}}
+📞 ఫోన్ నంబర్: +{{executive_phone}}
+💬 WhatsApp: https://wa.me/{{executive_phone}}
+📞 కాల్ చేయండి: tel:+{{executive_phone}}
+
+- *శ్రీ లక్ష్మి ఇండస్ట్రీస్, మధురై*`,
+};
+
+export const DEFAULT_CUSTOMER_WELCOME_TEMPLATE = DEFAULT_ALL_IN_ONE_WELCOME_TEMPLATE;
+
+export const DEFAULT_EXECUTIVE_TEMPLATE = `🚨 *NEW LEAD ASSIGNED TO YOU! | புதிய லீட் உங்களுக்கு ஒதுக்கப்பட்டுள்ளது!*
+━━━━━━━━━━━━━━━━━━━━━━
+👤 *Customer / வாடிக்கையாளர்:* {{customer_name}}
+📱 *Phone / எண்:* +{{customer_phone}}
+🏭 *Requirement / தேவை:* {{requirement}}
+📍 *Location / இடம்:* {{location}}
+💬 *Message / தகவல்:* "{{customer_message}}"
+⏰ *Time:* {{time}}
+━━━━━━━━━━━━━━━━━━━━━━
+⚡ *URGENT ACTION REQUIRED | உடனடி நடவடிக்கை தேவை:*
+தயவுசெய்து இந்த வாடிக்கையாளரை அடுத்த {{sla_minutes}} நிமிடங்களுக்குள் WhatsApp அல்லது Call செய்து பேசவும்!
+(Please contact this customer within {{sla_minutes}} minutes without delay!)
+
+👉 *Click to WhatsApp / வாட்ஸ்அப் செய்ய:*
+https://wa.me/{{customer_phone}}
+
+📞 *Click to Call / போன் செய்ய:*
+tel:+{{customer_phone}}
+
+💻 *Open in CRM Portal:*
+{{crm_inbox_link}}
+━━━━━━━━━━━━━━━━━━━━━━
+- *Sri Lakshmi Industries Sales Management*`;
+
+export const DEFAULT_ADMIN_TEMPLATE = `🔥 *NEW LEAD ALERT - Sri Lakshmi Industries*
+━━━━━━━━━━━━━━━━━━━━━━
+👤 *Customer:* {{customer_name}}
+📱 *Phone:* +{{customer_phone}}
+🏭 *Requirement:* {{requirement}}
+📍 *Location:* {{location}}
+💬 *Message:* "{{customer_message}}"
+━━━━━━━━━━━━━━━━━━━━━━
+🎯 *Assigned Executive:* {{executive_name}} (+{{executive_phone}})
+⏰ *Time:* {{time}} (IST)
+⚡ *SLA:* Call within {{sla_minutes}} mins
+🔗 *CRM Inbox:* {{crm_inbox_link}}`;
+
+export function renderLeadTemplate(
+  template: string,
+  vars: Record<string, string | number | undefined>
+): string {
+  let rendered = template;
+  for (const [key, val] of Object.entries(vars)) {
+    const stringVal = val !== undefined && val !== null ? String(val) : "";
+    const regex = new RegExp(`{{\\s*${key}\\s*}}`, "g");
+    rendered = rendered.replace(regex, stringVal);
+  }
+  return rendered;
 }
 
 export const DEFAULT_SALES_EXECUTIVES: SalesExecutive[] = [
@@ -40,6 +230,7 @@ export const DEFAULT_SALES_EXECUTIVES: SalesExecutive[] = [
     user_id: "a09eac1f-b95b-4a8c-8c4f-cc5822b32ea1",
     active: true,
     role: "Sales Executive",
+    languages: ["ta", "en"],
   },
   {
     id: "exec-subash",
@@ -50,6 +241,7 @@ export const DEFAULT_SALES_EXECUTIVES: SalesExecutive[] = [
     user_id: "b8db6f80-377c-41b9-bc79-458ed7733230",
     active: true,
     role: "Sales Executive",
+    languages: ["ta", "ml", "en"],
   },
   {
     id: "exec-baskar",
@@ -60,6 +252,7 @@ export const DEFAULT_SALES_EXECUTIVES: SalesExecutive[] = [
     user_id: "a909751b-7022-4e47-aaed-c7cfc5acd526",
     active: true,
     role: "Sales Executive",
+    languages: ["ta", "te", "en"],
   },
   {
     id: "exec-bala",
@@ -70,6 +263,7 @@ export const DEFAULT_SALES_EXECUTIVES: SalesExecutive[] = [
     user_id: "35760e9c-b82a-40d0-a6ee-ca1804d72a90",
     active: true,
     role: "Sales Executive",
+    languages: ["ta", "kn", "en"],
   },
   {
     id: "exec-nallakaman",
@@ -80,6 +274,7 @@ export const DEFAULT_SALES_EXECUTIVES: SalesExecutive[] = [
     user_id: "bc6a28a6-7f3c-4ba2-974e-072b192e6c02",
     active: true,
     role: "Sales Executive",
+    languages: ["ta", "hi", "en"],
   },
   {
     id: "exec-karthick",
@@ -90,6 +285,7 @@ export const DEFAULT_SALES_EXECUTIVES: SalesExecutive[] = [
     user_id: "944ed513-3b24-4daf-a159-66b37b63a967",
     active: true,
     role: "Sales Executive",
+    languages: ["ta", "hi", "en"],
   },
 ];
 
@@ -107,10 +303,15 @@ export const DEFAULT_ROUTING_CONFIG: LeadRoutingConfig = {
   assignmentMethod: "round_robin",
   notifyAdmin: true,
   notifyExecutive: true,
+  notifyCustomer: true,
   adminRecipients: DEFAULT_ADMIN_RECIPIENTS,
   executives: DEFAULT_SALES_EXECUTIVES,
   slaMinutes: 5,
   lastAssignedIndex: 0,
+  executiveAlertTemplate: DEFAULT_EXECUTIVE_TEMPLATE,
+  adminAlertTemplate: DEFAULT_ADMIN_TEMPLATE,
+  customerWelcomeTemplate: DEFAULT_CUSTOMER_WELCOME_TEMPLATE,
+  multilingualCustomerTemplates: MULTILINGUAL_CUSTOMER_WELCOME_TEMPLATES,
 };
 
 export const MD_SIR_PHONE = "919994440905";
@@ -200,10 +401,66 @@ export async function saveLeadRoutingConfig(
   return updated;
 }
 
-export function getNextRoundRobinExecutive(indexSeed?: number): SalesExecutive {
+export function detectLanguageFromLead({
+  location,
+  messageText,
+  language,
+}: {
+  location?: string;
+  messageText?: string;
+  language?: string;
+}): SupportedLanguage {
+  if (language && (["ta", "en", "hi", "kn", "ml", "te"] as string[]).includes(language.toLowerCase())) {
+    return language.toLowerCase() as SupportedLanguage;
+  }
+
+  const loc = (location || "").toLowerCase();
+  const msg = (messageText || "").toLowerCase();
+
+  // Malayalam / Kerala
+  if (loc.includes("kerala") || loc.includes("kochi") || loc.includes("calicut") || loc.includes("trivandrum") || loc.includes("thrissur") || loc.includes("kollam") || loc.includes("palakkad") || loc.includes("malappuram") || loc.includes("kannur") || /[\u0D00-\u0D7F]/.test(msg)) {
+    return "ml";
+  }
+
+  // Kannada / Karnataka
+  if (loc.includes("karnataka") || loc.includes("bangalore") || loc.includes("bengaluru") || loc.includes("mysore") || loc.includes("hubli") || loc.includes("belgaum") || loc.includes("mangalore") || loc.includes("tumkur") || /[\u0C80-\u0CFF]/.test(msg)) {
+    return "kn";
+  }
+
+  // Telugu / AP / Telangana
+  if (loc.includes("andhra") || loc.includes("telangana") || loc.includes("hyderabad") || loc.includes("vijayawada") || loc.includes("visakhapatnam") || loc.includes("guntur") || loc.includes("tirupati") || loc.includes("warangal") || /[\u0C00-\u0C7F]/.test(msg)) {
+    return "te";
+  }
+
+  // Hindi / North India
+  if (
+    loc.includes("delhi") || loc.includes("mumbai") || loc.includes("maharashtra") || loc.includes("gujarat") || loc.includes("uttar pradesh") || loc.includes("up") || loc.includes("bihar") || loc.includes("rajasthan") || loc.includes("madhya pradesh") || loc.includes("mp") || loc.includes("punjab") || loc.includes("haryana") || loc.includes("kolkata") || loc.includes("west bengal") || /[\u0900-\u097F]/.test(msg)
+  ) {
+    return "hi";
+  }
+
+  // Tamil / TN default
+  if (loc.includes("tamil") || loc.includes("tamil nadu") || loc.includes("chennai") || loc.includes("madurai") || loc.includes("coimbatore") || loc.includes("trichy") || loc.includes("salem") || loc.includes("tirunelveli") || loc.includes("erode") || loc.includes("vellore") || /[\u0B80-\u0BFF]/.test(msg)) {
+    return "ta";
+  }
+
+  return "ta";
+}
+
+export function getNextRoundRobinExecutive(indexSeed?: number, targetLanguage?: SupportedLanguage): SalesExecutive {
   const config = cachedConfig || DEFAULT_ROUTING_CONFIG;
   const activeExecs = config.executives.filter((e) => e.active !== false);
-  const pool = activeExecs.length > 0 ? activeExecs : DEFAULT_SALES_EXECUTIVES;
+
+  // If language provided, try to filter by matching language
+  let pool = activeExecs;
+  if (targetLanguage) {
+    const matching = activeExecs.filter((e) => e.languages && e.languages.includes(targetLanguage));
+    if (matching.length > 0) {
+      pool = matching;
+    }
+  }
+
+  if (pool.length === 0) pool = DEFAULT_SALES_EXECUTIVES;
 
   let idx = 0;
   if (typeof indexSeed === "number" && !isNaN(indexSeed)) {
@@ -219,11 +476,21 @@ export function getNextRoundRobinExecutive(indexSeed?: number): SalesExecutive {
 }
 
 export async function getNextRoundRobinExecutiveAsync(
-  indexSeed?: number
+  indexSeed?: number,
+  targetLanguage?: SupportedLanguage
 ): Promise<SalesExecutive> {
   const config = await getLeadRoutingConfig();
   const activeExecs = config.executives.filter((e) => e.active !== false);
-  const pool = activeExecs.length > 0 ? activeExecs : DEFAULT_SALES_EXECUTIVES;
+
+  let pool = activeExecs;
+  if (targetLanguage) {
+    const matching = activeExecs.filter((e) => e.languages && e.languages.includes(targetLanguage));
+    if (matching.length > 0) {
+      pool = matching;
+    }
+  }
+
+  if (pool.length === 0) pool = DEFAULT_SALES_EXECUTIVES;
 
   let idx = 0;
   if (typeof indexSeed === "number" && !isNaN(indexSeed)) {
@@ -248,12 +515,37 @@ export function findExecutiveByProfileId(profileId?: string | null): SalesExecut
   return config.executives.find((e) => e.profile_id === profileId) || null;
 }
 
+export function getCustomerWelcomeTemplateForLang(
+  lang: SupportedLanguage,
+  config?: LeadRoutingConfig
+): string {
+  // If greeting mode is explicitly set to all_in_one (or if all_in_one lang selected)
+  if (config?.welcomeGreetingMode === "all_in_one" || lang === "all_in_one") {
+    return (
+      config?.multilingualCustomerTemplates?.all_in_one ||
+      config?.customerWelcomeTemplate ||
+      DEFAULT_ALL_IN_ONE_WELCOME_TEMPLATE
+    );
+  }
+
+  const customDict = config?.multilingualCustomerTemplates;
+  if (customDict && customDict[lang]) {
+    return customDict[lang];
+  }
+  return (
+    MULTILINGUAL_CUSTOMER_WELCOME_TEMPLATES[lang] ||
+    config?.customerWelcomeTemplate ||
+    DEFAULT_ALL_IN_ONE_WELCOME_TEMPLATE
+  );
+}
+
 export async function sendLeadAlerts({
   customerName,
   customerPhone,
   messageText,
   requirement,
   location,
+  language,
   assignedExec,
   accessToken,
   phoneNumberId,
@@ -263,6 +555,7 @@ export async function sendLeadAlerts({
   messageText?: string;
   requirement?: string;
   location?: string;
+  language?: string;
   assignedExec: SalesExecutive;
   accessToken: string;
   phoneNumberId: string;
@@ -283,26 +576,29 @@ export async function sendLeadAlerts({
 
   const sla = config.slaMinutes || 5;
 
+  const templateVars = {
+    customer_name: customerName,
+    customer_phone: cleanCustomerPhone,
+    requirement: requirement || "Murukku Machine Enquiry",
+    location: location || "Tamil Nadu",
+    customer_message: messageText ? messageText.slice(0, 300) : "Murukku machine price & catalogue enquiry",
+    executive_name: assignedExec.name,
+    executive_tamil_name: assignedExec.tamilName || assignedExec.name,
+    executive_phone: assignedExec.phone.replace(/\D/g, ""),
+    time: nowStr,
+    sla_minutes: sla,
+    crm_inbox_link: "https://sli-crm-rho.vercel.app/inbox",
+    quick_call_link: `https://wa.me/${cleanCustomerPhone}`,
+  };
+
   // 1. Management Alerts to All Active Admin Recipients
   if (config.notifyAdmin) {
     const activeAdmins = (config.adminRecipients || DEFAULT_ADMIN_RECIPIENTS).filter(
       (a) => a.active !== false && a.phone
     );
 
-    let mdMsg =
-      `🔥 *NEW LEAD ALERT - Sri Lakshmi Industries*\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `👤 *Customer:* ${customerName}\n` +
-      `📱 *Phone:* +${cleanCustomerPhone}\n`;
-    if (requirement) mdMsg += `🏭 *Requirement:* ${requirement}\n`;
-    if (location) mdMsg += `📍 *Location:* ${location}\n`;
-    if (messageText) mdMsg += `💬 *Message:* "${messageText.slice(0, 200)}"\n`;
-    mdMsg +=
-      `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `🎯 *Assigned Executive:* ${assignedExec.name} (+${assignedExec.phone})\n` +
-      `⏰ *Time:* ${nowStr} (IST)\n` +
-      `⚡ *SLA:* Call within ${sla} mins\n` +
-      `🔗 *CRM Inbox:* https://sli-crm-rho.vercel.app/inbox`;
+    const adminTemplate = config.adminAlertTemplate || DEFAULT_ADMIN_TEMPLATE;
+    const mdMsg = renderLeadTemplate(adminTemplate, templateVars);
 
     for (const admin of activeAdmins) {
       const cleanAdminPhone = admin.phone.replace(/\D/g, "");
@@ -332,28 +628,8 @@ export async function sendLeadAlerts({
     assignedExec.phone.replace(/\D/g, "") !== cleanCustomerPhone
   ) {
     const cleanExecPhone = assignedExec.phone.replace(/\D/g, "");
-    let execMsg =
-      `🚨 *NEW LEAD ASSIGNED TO YOU! | புதிய லீட் உங்களுக்கு ஒதுக்கப்பட்டுள்ளது!*\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `👤 *Customer / வாடிக்கையாளர்:* ${customerName}\n` +
-      `📱 *Phone / எண்:* +${cleanCustomerPhone}\n`;
-    if (requirement) execMsg += `🏭 *Requirement / தேவை:* ${requirement}\n`;
-    if (location) execMsg += `📍 *Location / இடம்:* ${location}\n`;
-    if (messageText) execMsg += `💬 *Message / தகவல்:* "${messageText.slice(0, 200)}"\n`;
-    execMsg +=
-      `⏰ *Time:* ${nowStr}\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `⚡ *URGENT ACTION REQUIRED | உடனடி நடவடிக்கை தேவை:*\n` +
-      `தயவுசெய்து இந்த வாடிக்கையாளரை அடுத்த ${sla} நிமிடங்களுக்குள் WhatsApp அல்லது Call செய்து பேசவும்!\n` +
-      `(Please contact this customer within ${sla} minutes without delay!)\n\n` +
-      `👉 *Click to WhatsApp / வாட்ஸ்அப் செய்ய:*\n` +
-      `https://wa.me/${cleanCustomerPhone}\n\n` +
-      `📞 *Click to Call / போன் செய்ய:*\n` +
-      `tel:+${cleanCustomerPhone}\n\n` +
-      `💻 *Open in CRM Portal:*\n` +
-      `https://sli-crm-rho.vercel.app/inbox\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `- *Sri Lakshmi Industries Sales Management*`;
+    const execTemplate = config.executiveAlertTemplate || DEFAULT_EXECUTIVE_TEMPLATE;
+    const execMsg = renderLeadTemplate(execTemplate, templateVars);
 
     try {
       await sendTextMessage({
@@ -368,6 +644,68 @@ export async function sendLeadAlerts({
     } catch (err) {
       console.error(
         `[LeadAlert] Failed to send alert to executive ${assignedExec.name}:`,
+        err
+      );
+    }
+  }
+
+  // 3. Customer Auto-Welcome Greeting Message (Dispatched directly to lead in their detected language)
+  if (config.notifyCustomer !== false && cleanCustomerPhone) {
+    const detectedLang = detectLanguageFromLead({ location, messageText, language });
+    const custTemplate = getCustomerWelcomeTemplateForLang(detectedLang, config);
+    const custMsg = renderLeadTemplate(custTemplate, templateVars);
+
+    try {
+      await sendTextMessage({
+        phoneNumberId,
+        accessToken,
+        to: cleanCustomerPhone,
+        text: custMsg,
+      });
+      console.info(
+        `[LeadAlert] Auto-welcome greeting (${detectedLang}) successfully sent to customer ${customerName} (+${cleanCustomerPhone})`
+      );
+
+      // Record this outbound message in Supabase so it appears in CRM Inbox
+      try {
+        const admin = supabaseAdmin();
+        const { data: contact } = await admin
+          .from("contacts")
+          .select("id")
+          .eq("phone", cleanCustomerPhone)
+          .maybeSingle();
+
+        if (contact?.id) {
+          const { data: conv } = await admin
+            .from("conversations")
+            .select("id")
+            .eq("contact_id", contact.id)
+            .maybeSingle();
+
+          if (conv?.id) {
+            await admin.from("messages").insert({
+              conversation_id: conv.id,
+              sender_type: "agent",
+              content_type: "text",
+              content_text: custMsg,
+              status: "sent",
+            });
+            await admin
+              .from("conversations")
+              .update({
+                last_message_at: new Date().toISOString(),
+                last_message_text: custMsg.slice(0, 100),
+                assigned_to: assignedExec.user_id || undefined,
+              })
+              .eq("id", conv.id);
+          }
+        }
+      } catch (dbErr) {
+        console.warn("[LeadAlert] Error logging customer welcome to DB:", dbErr);
+      }
+    } catch (err) {
+      console.error(
+        `[LeadAlert] Failed to send auto-welcome to customer (+${cleanCustomerPhone}):`,
         err
       );
     }

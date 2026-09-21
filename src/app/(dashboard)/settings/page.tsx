@@ -21,6 +21,7 @@ import { DealsSettings } from '@/components/settings/deals-settings';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import { DailyReportSettings } from '@/components/settings/daily-report-settings';
+import { MachineMasterPanel } from '@/components/settings/machine-master-panel';
 import {
   resolveSection,
   type SettingsSection,
@@ -80,6 +81,7 @@ function SettingsPageInner() {
     whatsapp: <WhatsAppConfig />,
     'lead-routing': <LeadRoutingPanel />,
     'meta-leads': <MetaLeadsPanel />,
+    machines: <MachineMasterPanel />,
     'daily-reports': <DailyReportSettings />,
     templates: <TemplateManager />,
     'quick-replies': <QuickRepliesManager />,

@@ -25,6 +25,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
   AlertTriangle,
+  Edit3,
   Loader2,
   Mail,
   MailX,
@@ -75,6 +76,7 @@ import {
 } from '@/components/presence/presence-dot';
 import { InviteMemberDialog } from './invite-member-dialog';
 import { CreateMemberDialog } from './create-member-dialog';
+import { EditMemberDialog } from './edit-member-dialog';
 import { SettingsPanelHead } from './settings-panel-head';
 import { ROLE_META } from './role-meta';
 
@@ -138,6 +140,7 @@ export function MembersTab() {
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [removingMember, setRemovingMember] = useState<Member | null>(null);
   const [pendingMemberAction, setPendingMemberAction] = useState<string | null>(
     null,
@@ -464,6 +467,21 @@ export function MembersTab() {
                       </span>
                     )}
 
+                    {/* Edit Member & Password — Admin+ only */}
+                    {canManageMembers && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingMember(member)}
+                        disabled={isBusy}
+                        className="border-border text-foreground hover:bg-muted text-xs font-medium"
+                        title="Edit details and reset password"
+                      >
+                        <Edit3 className="size-3.5 mr-1 text-primary" />
+                        Edit
+                      </Button>
+                    )}
+
                     {/* Remove. Admin+ only; never on the owner row;
                         never on yourself. Pre-polish styling was
                         neutral-default + red-on-hover — the
@@ -627,6 +645,15 @@ export function MembersTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <EditMemberDialog
+        member={editingMember}
+        open={editingMember !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingMember(null);
+        }}
+        onUpdated={loadEverything}
+      />
 
       <CreateMemberDialog
         open={createOpen}

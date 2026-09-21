@@ -84,8 +84,10 @@ export function InboxTableView({
       try {
         const res = await fetch('/api/account/members');
         const data = await res.json();
-        if (data.ok && Array.isArray(data.members)) {
+        if (Array.isArray(data.members)) {
           setMembers(data.members);
+        } else if (Array.isArray(data)) {
+          setMembers(data);
         }
       } catch {
         // Ignored

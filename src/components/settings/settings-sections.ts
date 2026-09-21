@@ -13,6 +13,7 @@ import {
   Zap,
   BellRing,
   Workflow,
+  Wrench,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -32,6 +33,7 @@ export const SETTINGS_SECTIONS = [
   'whatsapp',
   'lead-routing',
   'meta-leads',
+  'machines',
   'daily-reports',
   'templates',
   'quick-replies',
@@ -61,6 +63,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   whatsapp: { id: 'whatsapp', label: 'WhatsApp', icon: PlugZap, group: 'workspace' },
   'lead-routing': { id: 'lead-routing', label: 'Lead Assignment Flow', icon: Workflow, group: 'workspace' },
   'meta-leads': { id: 'meta-leads', label: 'Meta Lead Ads', icon: Radio, group: 'workspace' },
+  machines: { id: 'machines', label: 'Machine Masters', icon: Wrench, group: 'workspace' },
   'daily-reports': { id: 'daily-reports', label: 'Daily Reports (6:05 PM)', icon: BellRing, group: 'workspace' },
   templates: { id: 'templates', label: 'Templates', icon: FileText, group: 'workspace' },
   'quick-replies': { id: 'quick-replies', label: 'Quick replies', icon: Zap, group: 'workspace' },

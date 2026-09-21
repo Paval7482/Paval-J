@@ -18,6 +18,9 @@ import {
   Pencil,
   Check,
   UserCheck,
+  FileText,
+  Smartphone,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +28,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -41,7 +46,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import type { LeadRoutingConfig, SalesExecutive, AdminRecipient } from "@/lib/whatsapp/lead-alert";
+import {
+  type LeadRoutingConfig,
+  type SalesExecutive,
+  type AdminRecipient,
+  type SupportedLanguage,
+  SUPPORTED_LANGUAGES,
+  MULTILINGUAL_CUSTOMER_WELCOME_TEMPLATES,
+  DEFAULT_EXECUTIVE_TEMPLATE,
+  DEFAULT_ADMIN_TEMPLATE,
+  DEFAULT_CUSTOMER_WELCOME_TEMPLATE,
+  renderLeadTemplate,
+} from "@/lib/whatsapp/lead-alert";
 
 interface TeamMember {
   id: string;
@@ -82,12 +98,36 @@ const TAMIL_NAME_MAP: Record<string, string> = {
   selvan: "செல்வன்",
 };
 
+const TEMPLATE_VARIABLES = [
+  { tag: "{{customer_name}}", label: "Customer Name", desc: "வாடிக்கையாளர் பெயர்" },
+  { tag: "{{customer_phone}}", label: "Customer Phone", desc: "மொபைல் எண்" },
+  { tag: "{{requirement}}", label: "Requirement", desc: "இயந்திரத் தேவை" },
+  { tag: "{{location}}", label: "Location", desc: "இடம் / ஊர்" },
+  { tag: "{{customer_message}}", label: "Customer Message", desc: "வாடிக்கையாளர் தகவல்" },
+  { tag: "{{executive_name}}", label: "Executive Name", desc: "பணியாளர் பெயர்" },
+  { tag: "{{executive_tamil_name}}", label: "Executive Tamil Name", desc: "தமிழ் பெயர்" },
+  { tag: "{{executive_phone}}", label: "Executive Phone", desc: "WhatsApp எண்" },
+  { tag: "{{time}}", label: "Time", desc: "நேரம் (IST)" },
+  { tag: "{{sla_minutes}}", label: "SLA Timer", desc: "SLA நிமிடங்கள்" },
+  { tag: "{{quick_call_link}}", label: "WhatsApp Link", desc: "wa.me Chat Link" },
+  { tag: "{{crm_inbox_link}}", label: "CRM Portal Link", desc: "CRM Inbox Link" },
+];
+
 export function LeadRoutingPanel() {
   const [config, setConfig] = useState<LeadRoutingConfig | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
+
+  // Template Customization State
+  const [activeTemplateTab, setActiveTemplateTab] = useState<"customer" | "executive" | "admin">("customer");
+  const [activeCustomerLang, setActiveCustomerLang] = useState<SupportedLanguage>("all_in_one");
+  const [multilingualTemplates, setMultilingualTemplates] = useState<Record<SupportedLanguage, string>>(
+    MULTILINGUAL_CUSTOMER_WELCOME_TEMPLATES
+  );
+  const [execTemplate, setExecTemplate] = useState<string>(DEFAULT_EXECUTIVE_TEMPLATE);
+  const [adminTemplate, setAdminTemplate] = useState<string>(DEFAULT_ADMIN_TEMPLATE);
 
   // Add Executive Dialog State
   const [showAddExec, setShowAddExec] = useState(false);
@@ -97,12 +137,14 @@ export function LeadRoutingPanel() {
   const [execPhone, setExecPhone] = useState("");
   const [execUserId, setExecUserId] = useState<string>("");
   const [execProfileId, setExecProfileId] = useState<string>("");
+  const [execLanguages, setExecLanguages] = useState<SupportedLanguage[]>(["ta", "en"]);
 
   // Edit Executive Dialog State
   const [editingExec, setEditingExec] = useState<SalesExecutive | null>(null);
   const [editName, setEditName] = useState("");
   const [editTamilName, setEditTamilName] = useState("");
   const [editPhone, setEditPhone] = useState("");
+  const [editLanguages, setEditLanguages] = useState<SupportedLanguage[]>(["ta", "en"]);
 
   // Admin numbers state
   const [adminName, setAdminName] = useState("");
@@ -115,6 +157,14 @@ export function LeadRoutingPanel() {
       const data = await res.json();
       if (data.ok && data.config) {
         setConfig(data.config);
+        const savedMulti = data.config.multilingualCustomerTemplates || MULTILINGUAL_CUSTOMER_WELCOME_TEMPLATES;
+        setMultilingualTemplates({
+          ...MULTILINGUAL_CUSTOMER_WELCOME_TEMPLATES,
+          ...savedMulti,
+          all_in_one: savedMulti.all_in_one || data.config.customerWelcomeTemplate || MULTILINGUAL_CUSTOMER_WELCOME_TEMPLATES.all_in_one,
+        });
+        setExecTemplate(data.config.executiveAlertTemplate || DEFAULT_EXECUTIVE_TEMPLATE);
+        setAdminTemplate(data.config.adminAlertTemplate || DEFAULT_ADMIN_TEMPLATE);
         setTeamMembers(data.teamMembers || []);
       }
     } catch {
@@ -140,6 +190,14 @@ export function LeadRoutingPanel() {
       const data = await res.json();
       if (data.ok && data.config) {
         setConfig(data.config);
+        if (data.config.multilingualCustomerTemplates) {
+          setMultilingualTemplates({
+            ...MULTILINGUAL_CUSTOMER_WELCOME_TEMPLATES,
+            ...data.config.multilingualCustomerTemplates,
+          });
+        }
+        if (data.config.executiveAlertTemplate) setExecTemplate(data.config.executiveAlertTemplate);
+        if (data.config.adminAlertTemplate) setAdminTemplate(data.config.adminAlertTemplate);
         toast.success("Lead assignment settings saved successfully!");
       } else {
         throw new Error(data.error);
@@ -148,6 +206,52 @@ export function LeadRoutingPanel() {
       toast.error(err.message || "Failed to save configuration");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveTemplates = () => {
+    handleSaveConfig({
+      customerWelcomeTemplate: multilingualTemplates.all_in_one || multilingualTemplates.ta,
+      multilingualCustomerTemplates: multilingualTemplates,
+      executiveAlertTemplate: execTemplate,
+      adminAlertTemplate: adminTemplate,
+      welcomeGreetingMode: "all_in_one",
+    });
+  };
+
+  const handleUpdateCurrentLangTemplate = (val: string) => {
+    setMultilingualTemplates((prev) => ({
+      ...prev,
+      [activeCustomerLang]: val,
+    }));
+  };
+
+  const handleResetTemplate = (type: "customer" | "executive" | "admin") => {
+    if (type === "customer") {
+      const defTemplate = MULTILINGUAL_CUSTOMER_WELCOME_TEMPLATES[activeCustomerLang];
+      setMultilingualTemplates((prev) => ({
+        ...prev,
+        [activeCustomerLang]: defTemplate,
+      }));
+      toast.success(`${activeCustomerLang.toUpperCase()} Welcome template reset to default!`);
+    } else if (type === "executive") {
+      setExecTemplate(DEFAULT_EXECUTIVE_TEMPLATE);
+      handleSaveConfig({ executiveAlertTemplate: DEFAULT_EXECUTIVE_TEMPLATE });
+      toast.success("Executive template reset to default!");
+    } else {
+      setAdminTemplate(DEFAULT_ADMIN_TEMPLATE);
+      handleSaveConfig({ adminAlertTemplate: DEFAULT_ADMIN_TEMPLATE });
+      toast.success("Management template reset to default!");
+    }
+  };
+
+  const handleInsertTag = (tag: string) => {
+    if (activeTemplateTab === "customer") {
+      handleUpdateCurrentLangTemplate(`${multilingualTemplates[activeCustomerLang] || ""} ${tag}`);
+    } else if (activeTemplateTab === "executive") {
+      setExecTemplate((prev) => `${prev} ${tag}`);
+    } else {
+      setAdminTemplate((prev) => `${prev} ${tag}`);
     }
   };
 
@@ -367,6 +471,27 @@ export function LeadRoutingPanel() {
   const activeExecsCount = config.executives.filter((e) => e.active).length;
   const activeAdminsCount = config.adminRecipients.filter((a) => a.active).length;
 
+  // Sample lead data for real-time preview simulation
+  const previewData = {
+    customer_name: "Ramanathan M",
+    customer_phone: "919876543210",
+    requirement: "Double Die Murukku Machine (Semi-Automatic)",
+    location: "Madurai, Tamil Nadu",
+    customer_message: "Murukku machine price list and catalogue details venum.",
+    executive_name: config.executives[0]?.name || "SATHEESH",
+    executive_tamil_name: config.executives[0]?.tamilName || "சதீஷ்",
+    executive_phone: config.executives[0]?.phone || "919786390479",
+    time: "01:15 pm",
+    sla_minutes: config.slaMinutes || 5,
+    quick_call_link: "https://wa.me/919876543210",
+    crm_inbox_link: "https://sli-crm-rho.vercel.app/inbox",
+  };
+
+  const currentCustomerTemplate = multilingualTemplates[activeCustomerLang] || MULTILINGUAL_CUSTOMER_WELCOME_TEMPLATES.ta;
+  const renderedCustomerPreview = renderLeadTemplate(currentCustomerTemplate, previewData);
+  const renderedExecPreview = renderLeadTemplate(execTemplate, previewData);
+  const renderedAdminPreview = renderLeadTemplate(adminTemplate, previewData);
+
   return (
     <div className="space-y-8">
       {/* Top Automation Flow Banner */}
@@ -383,7 +508,7 @@ export function LeadRoutingPanel() {
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground">
-              Automatically assigns incoming WhatsApp and Meta leads across active Sales Executives equally, sends urgent action alerts to Executive WhatsApp, and delivers management tracking summaries to MD Sir.
+              Automatically greets incoming leads in their native language (Tamil, Hindi, Kannada, Malayalam, Telugu, English), matches language-specialist Sales Executives, sends urgent action alerts to Executive WhatsApp, and delivers management tracking summaries to MD Sir.
             </p>
           </div>
 
@@ -421,27 +546,27 @@ export function LeadRoutingPanel() {
               <span>1. Inbound Lead</span>
             </div>
             <p className="text-muted-foreground text-[11px]">
-              Customer sends WhatsApp message or submits Meta Lead Form.
+              Customer sends WhatsApp message, submits Meta Lead Form, or calls.
             </p>
           </div>
 
           <div className="rounded-lg border border-border bg-card/70 p-3.5 text-xs flex flex-col justify-between shadow-xs">
-            <div className="flex items-center gap-2 text-amber-500 font-semibold mb-1">
-              <RotateCcw className="h-4 w-4" />
-              <span>2. Round-Robin Router</span>
+            <div className="flex items-center gap-2 text-blue-500 font-semibold mb-1">
+              <Sparkles className="h-4 w-4" />
+              <span>2. Multi-Language Greeting</span>
             </div>
             <p className="text-muted-foreground text-[11px]">
-              Rotates across <b>{activeExecsCount} Active Executives</b> with auto-skip for offline members.
+              Auto-detects language (Tamil/Hindi/Kannada/Malayalam/Telugu/English) and sends executive info.
             </p>
           </div>
 
           <div className="rounded-lg border border-border bg-card/70 p-3.5 text-xs flex flex-col justify-between shadow-xs">
             <div className="flex items-center gap-2 text-emerald-500 font-semibold mb-1">
               <Zap className="h-4 w-4" />
-              <span>3. Executive WhatsApp Alert</span>
+              <span>3. Language-Matched Exec</span>
             </div>
             <p className="text-muted-foreground text-[11px]">
-              Lead assigned in CRM + WhatsApp alert sent to Executive with 1-click Call link.
+              Assigned to executive speaking customer's language with 1-click Call link.
             </p>
           </div>
 
@@ -456,6 +581,280 @@ export function LeadRoutingPanel() {
           </div>
         </div>
       </div>
+
+      {/* SECTION: WhatsApp Alert & Welcome Templates Customizer */}
+      <Card className="border-primary/20 shadow-sm">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              <CardTitle className="text-base font-semibold">
+                WhatsApp Message & Alert Templates Customizer
+              </CardTitle>
+              <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
+                6 Languages Supported
+              </Badge>
+            </div>
+            <CardDescription className="text-xs mt-0.5">
+              Customize the automatic customer welcome greeting across 6 languages (Tamil, Hindi, Kannada, Malayalam, Telugu, English), executive alert, and management summary.
+            </CardDescription>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleResetTemplate(activeTemplateTab)}
+              className="text-xs gap-1.5 h-8"
+              title="Reset template to default"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reset to Default
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSaveTemplates}
+              disabled={saving}
+              className="text-xs gap-1.5 h-8 font-medium shadow-xs"
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+              Save Templates
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          <Tabs
+            value={activeTemplateTab}
+            onValueChange={(val) => setActiveTemplateTab(val as "customer" | "executive" | "admin")}
+            className="w-full"
+          >
+            <TabsList className="grid w-full grid-cols-3 max-w-xl h-9 p-1 bg-muted/60">
+              <TabsTrigger value="customer" className="text-xs font-semibold flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                Customer Welcome Greeting
+              </TabsTrigger>
+              <TabsTrigger value="executive" className="text-xs font-semibold flex items-center gap-1.5">
+                <Zap className="h-3.5 w-3.5 text-emerald-500" />
+                Executive WhatsApp Alert
+              </TabsTrigger>
+              <TabsTrigger value="admin" className="text-xs font-semibold flex items-center gap-1.5">
+                <Crown className="h-3.5 w-3.5 text-amber-500" />
+                Management (MD Sir)
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Dynamic Placeholder Insertion Chips */}
+            <div className="mt-4 p-3 rounded-lg border border-border bg-muted/20 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  1-Click Dynamic Placeholders:
+                </span>
+                <span className="text-[11px] text-muted-foreground">Click tag to insert into template</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {TEMPLATE_VARIABLES.map((v) => (
+                  <button
+                    key={v.tag}
+                    type="button"
+                    onClick={() => handleInsertTag(v.tag)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-mono font-medium bg-background hover:bg-primary/10 hover:text-primary hover:border-primary/40 border border-border transition-all shadow-2xs"
+                    title={`${v.desc} - Click to insert`}
+                  >
+                    <span className="text-primary font-bold">+</span>
+                    <span>{v.tag}</span>
+                    <span className="text-muted-foreground font-sans text-[10px]">({v.label})</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Editor & Live WhatsApp Preview Grid */}
+            <div className="mt-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+              {/* Left Column: Template Textarea Editor */}
+              <div className="lg:col-span-7 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-foreground">
+                    {activeTemplateTab === "customer"
+                      ? `Customer Welcome (${SUPPORTED_LANGUAGES.find(l => l.code === activeCustomerLang)?.label || "Tamil"})`
+                      : activeTemplateTab === "executive"
+                      ? "Sales Executive WhatsApp Message Template"
+                      : "Management / MD Sir WhatsApp Message Template"}
+                  </Label>
+                  <span className="text-[11px] text-muted-foreground">
+                    {activeTemplateTab === "customer"
+                      ? currentCustomerTemplate.length
+                      : activeTemplateTab === "executive"
+                      ? execTemplate.length
+                      : adminTemplate.length}{" "}
+                    characters
+                  </span>
+                </div>
+
+                <TabsContent value="customer" className="mt-0 space-y-3">
+                  <div className="flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 p-2.5">
+                    <p className="text-xs text-muted-foreground">
+                      ⚡ Automatically sent to every new lead in their language upon arrival.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-foreground">Auto-Send:</span>
+                      <Switch
+                        checked={config.notifyCustomer !== false}
+                        onCheckedChange={(val) => handleSaveConfig({ notifyCustomer: val })}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 6-Language Sub-Tabs Bar */}
+                  <div className="p-3 bg-gradient-to-r from-primary/10 via-background to-primary/5 rounded-xl border-2 border-primary/30 shadow-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <span className="text-base">🌐</span>
+                        <span>Select Language to Edit / View Greeting:</span>
+                      </span>
+                      <Badge className="bg-primary text-primary-foreground text-[10px] font-semibold uppercase px-2 py-0.5">
+                        Active: {SUPPORTED_LANGUAGES.find(l => l.code === activeCustomerLang)?.label} ({activeCustomerLang.toUpperCase()})
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-2 pt-1">
+                      {SUPPORTED_LANGUAGES.map((lang) => (
+                        <button
+                          key={lang.code}
+                          type="button"
+                          onClick={() => setActiveCustomerLang(lang.code)}
+                          className={`px-2 py-2 rounded-lg text-xs font-semibold transition-all flex flex-col items-center justify-center gap-0.5 border ${
+                            activeCustomerLang === lang.code
+                              ? "bg-primary text-primary-foreground border-primary shadow-md scale-[1.02] ring-2 ring-primary/40"
+                              : lang.code === "all_in_one"
+                              ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/20"
+                              : "bg-background text-foreground hover:bg-muted/80 hover:border-primary/50 border-border shadow-2xs"
+                          }`}
+                        >
+                          <div className="flex items-center gap-1 text-xs">
+                            <span>{lang.flag}</span>
+                            <span className="truncate">{lang.native}</span>
+                          </div>
+                          <span className={`text-[10px] font-normal truncate ${activeCustomerLang === lang.code ? "text-primary-foreground/90" : "text-muted-foreground"}`}>
+                            {lang.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Textarea
+                    value={multilingualTemplates[activeCustomerLang] || ""}
+                    onChange={(e) => handleUpdateCurrentLangTemplate(e.target.value)}
+                    rows={14}
+                    placeholder={`Enter customer welcome message template in ${activeCustomerLang}...`}
+                    className="font-mono text-xs leading-relaxed bg-background p-3"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    ⚡ Use WhatsApp formatting: <code className="bg-muted px-1 py-0.5 rounded">*bold*</code>, <code className="bg-muted px-1 py-0.5 rounded">_italic_</code>, emojis, and placeholders like <code className="bg-muted px-1 py-0.5 rounded">&#123;&#123;customer_name&#125;&#125;</code> and <code className="bg-muted px-1 py-0.5 rounded">&#123;&#123;executive_name&#125;&#125;</code>.
+                  </p>
+                </TabsContent>
+
+                <TabsContent value="executive" className="mt-0 space-y-2">
+                  <Textarea
+                    value={execTemplate}
+                    onChange={(e) => setExecTemplate(e.target.value)}
+                    rows={15}
+                    placeholder="Enter executive alert message template..."
+                    className="font-mono text-xs leading-relaxed bg-background p-3"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    ⚡ Use WhatsApp formatting: <code className="bg-muted px-1 py-0.5 rounded">*bold*</code>, <code className="bg-muted px-1 py-0.5 rounded">_italic_</code>, emojis, and Tamil/English instructions.
+                  </p>
+                </TabsContent>
+
+                <TabsContent value="admin" className="mt-0 space-y-2">
+                  <Textarea
+                    value={adminTemplate}
+                    onChange={(e) => setAdminTemplate(e.target.value)}
+                    rows={15}
+                    placeholder="Enter management alert message template..."
+                    className="font-mono text-xs leading-relaxed bg-background p-3"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    ⚡ This summary template will be sent to all active numbers in the Management list (MD Sir).
+                  </p>
+                </TabsContent>
+              </div>
+
+              {/* Right Column: Live WhatsApp Chat Simulator Preview */}
+              <div className="lg:col-span-5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Smartphone className="h-3.5 w-3.5 text-emerald-500" />
+                    Live WhatsApp Preview:
+                  </Label>
+                  <Badge variant="outline" className="text-[10px] text-emerald-600 bg-emerald-500/10 border-emerald-500/20">
+                    Real-time Simulation
+                  </Badge>
+                </div>
+
+                <div className="rounded-xl border border-border bg-[#0b141a] text-slate-100 p-4 shadow-inner min-h-[340px] flex flex-col justify-between">
+                  {/* WhatsApp Chat Header */}
+                  <div className="flex items-center justify-between pb-2 border-b border-white/10 text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px]">
+                        SLI
+                      </div>
+                      <div>
+                        <div className="font-semibold text-white text-xs">Sri Lakshmi Industries</div>
+                        <div className="text-[10px] text-emerald-400">
+                          {activeTemplateTab === "customer"
+                            ? "Customer Welcome Message"
+                            : activeTemplateTab === "executive"
+                            ? "Executive Alert"
+                            : "Management Summary"}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-slate-400">Today</span>
+                  </div>
+
+                  {/* WhatsApp Message Bubble */}
+                  <div className="my-3 bg-[#005c4b] text-white p-3 rounded-lg rounded-tl-xs text-xs whitespace-pre-wrap font-sans leading-relaxed shadow-sm border border-emerald-600/30">
+                    {activeTemplateTab === "customer"
+                      ? renderedCustomerPreview
+                      : activeTemplateTab === "executive"
+                      ? renderedExecPreview
+                      : renderedAdminPreview}
+                    <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-emerald-200">
+                      <span>01:15 pm</span>
+                      <Check className="h-3 w-3 text-emerald-300" />
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-slate-400">
+                    <span>Simulated with sample lead data</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        handleSendTest(
+                          activeTemplateTab === "customer"
+                            ? "full"
+                            : activeTemplateTab === "executive"
+                            ? "executive"
+                            : "admin"
+                        )
+                      }
+                      className="h-7 text-xs text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20 px-2"
+                    >
+                      <Send className="h-3 w-3 mr-1" />
+                      Test Ping
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Tabs>
+        </CardContent>
+      </Card>
 
       {/* Section 1: Sales Executives Pool (Round-Robin Roster) */}
       <Card>
@@ -538,6 +937,22 @@ export function LeadRoutingPanel() {
                       <span className="text-border">•</span>
                       <span>{exec.role || "Sales Executive"}</span>
                     </div>
+
+                    {/* Language Badges */}
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {(exec.languages && exec.languages.length > 0 ? exec.languages : (["ta", "en"] as SupportedLanguage[])).map((langCode) => {
+                        const lObj = SUPPORTED_LANGUAGES.find((l) => l.code === langCode);
+                        return (
+                          <span
+                            key={langCode}
+                            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 font-medium"
+                          >
+                            <span>{lObj?.flag}</span>
+                            <span>{lObj?.native || langCode}</span>
+                          </span>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
@@ -547,7 +962,13 @@ export function LeadRoutingPanel() {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
-                    onClick={() => handleOpenEditExec(exec)}
+                    onClick={() => {
+                      setEditingExec(exec);
+                      setEditName(exec.name);
+                      setEditTamilName(exec.tamilName || "");
+                      setEditPhone(exec.phone);
+                      setEditLanguages(exec.languages || ["ta", "en"]);
+                    }}
                     title="Edit WhatsApp Number & Details"
                   >
                     <Pencil className="h-3.5 w-3.5" />
@@ -599,8 +1020,8 @@ export function LeadRoutingPanel() {
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <div>
             <div className="flex items-center gap-2">
+              <Crown className="h-5 w-5 text-amber-500" />
               <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Crown className="h-5 w-5 text-amber-500" />
                 Management & Admin Notification Numbers (MD Sir)
               </CardTitle>
               <Badge variant="secondary" className="text-xs">
@@ -782,7 +1203,7 @@ export function LeadRoutingPanel() {
               Add Sales Executive to Round-Robin
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Select an active CRM executive from the dropdown. Their details will auto-fill, and you can edit their WhatsApp number.
+              Select an active CRM executive from the dropdown. Configure their spoken languages for intelligent lead routing.
             </DialogDescription>
           </DialogHeader>
 
@@ -837,7 +1258,47 @@ export function LeadRoutingPanel() {
               />
             </div>
 
-            {/* 4. WhatsApp Number (Fully Editable) */}
+            {/* 4. Language Categories Handled */}
+            <div className="space-y-1.5 p-3 rounded-lg border border-primary/20 bg-primary/5">
+              <Label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                <span>Languages Handled (Language Category) *</span>
+                <span className="text-[10px] text-muted-foreground">Click to toggle</span>
+              </Label>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {SUPPORTED_LANGUAGES.map((lang) => {
+                  const isSelected = execLanguages.includes(lang.code);
+                  return (
+                    <button
+                      key={lang.code}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          if (execLanguages.length > 1) {
+                            setExecLanguages(execLanguages.filter((l) => l !== lang.code));
+                          }
+                        } else {
+                          setExecLanguages([...execLanguages, lang.code]);
+                        }
+                      }}
+                      className={`px-2.5 py-1 rounded-md text-xs flex items-center gap-1.5 border transition-all ${
+                        isSelected
+                          ? "bg-primary text-primary-foreground border-primary font-semibold shadow-2xs"
+                          : "bg-background text-muted-foreground border-border hover:bg-muted"
+                      }`}
+                    >
+                      <span>{lang.flag}</span>
+                      <span>{lang.native}</span>
+                      <span className="text-[10px] opacity-80">({lang.label})</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-muted-foreground pt-1">
+                Incoming leads in these languages will be intelligently assigned to this executive.
+              </p>
+            </div>
+
+            {/* 5. WhatsApp Number (Fully Editable) */}
             <div className="space-y-1.5 p-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5">
               <Label className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
                 <Phone className="h-3.5 w-3.5" />
@@ -850,7 +1311,7 @@ export function LeadRoutingPanel() {
                 className="text-xs bg-background font-mono font-medium"
               />
               <p className="text-[11px] text-muted-foreground">
-                ⚡ <b>Leads will be assigned & forwarded directly to this WhatsApp number</b>. You can change or edit this number anytime.
+                ⚡ <b>Leads will be assigned & forwarded directly to this WhatsApp number</b>.
               </p>
             </div>
           </div>
@@ -859,7 +1320,48 @@ export function LeadRoutingPanel() {
             <Button variant="outline" size="sm" onClick={() => setShowAddExec(false)}>
               Cancel
             </Button>
-            <Button size="sm" onClick={handleAddExecutive} disabled={saving} className="gap-1.5">
+            <Button
+              size="sm"
+              onClick={() => {
+                if (!config) return;
+                if (!execName.trim() || !execPhone.trim()) {
+                  toast.error("Please enter both Executive Name and WhatsApp Number");
+                  return;
+                }
+
+                const cleanPhone = execPhone.replace(/\D/g, "");
+                if (cleanPhone.length < 10) {
+                  toast.error("Please enter a valid 10+ digit WhatsApp number");
+                  return;
+                }
+
+                const newExec: SalesExecutive = {
+                  id: `exec-${Date.now()}`,
+                  name: execName.trim().toUpperCase(),
+                  tamilName: execTamilName.trim() || undefined,
+                  phone: cleanPhone.startsWith("91") ? cleanPhone : `91${cleanPhone}`,
+                  user_id: execUserId || undefined,
+                  profile_id: execProfileId || undefined,
+                  active: true,
+                  role: "Sales Executive",
+                  languages: execLanguages,
+                };
+
+                const updatedExecs = [...config.executives, newExec];
+                handleSaveConfig({ executives: updatedExecs });
+
+                setSelectedMemberId("");
+                setExecName("");
+                setExecTamilName("");
+                setExecPhone("");
+                setExecUserId("");
+                setExecProfileId("");
+                setExecLanguages(["ta", "en"]);
+                setShowAddExec(false);
+              }}
+              disabled={saving}
+              className="gap-1.5"
+            >
               <CheckCircle2 className="h-4 w-4" />
               Add to Rotation
             </Button>
@@ -873,10 +1375,10 @@ export function LeadRoutingPanel() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="h-5 w-5 text-primary" />
-              Edit Executive Details & WhatsApp Number
+              Edit Executive Details & Languages
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Update name, Tamil translation, or WhatsApp alert forwarding number for <b>{editingExec?.name}</b>.
+              Update name, languages handled, or WhatsApp alert forwarding number for <b>{editingExec?.name}</b>.
             </DialogDescription>
           </DialogHeader>
 
@@ -900,6 +1402,43 @@ export function LeadRoutingPanel() {
               />
             </div>
 
+            {/* Language Selection */}
+            <div className="space-y-1.5 p-3 rounded-lg border border-primary/20 bg-primary/5">
+              <Label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                <span>Languages Handled *</span>
+                <span className="text-[10px] text-muted-foreground">Click to toggle</span>
+              </Label>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {SUPPORTED_LANGUAGES.map((lang) => {
+                  const isSelected = editLanguages.includes(lang.code);
+                  return (
+                    <button
+                      key={lang.code}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          if (editLanguages.length > 1) {
+                            setEditLanguages(editLanguages.filter((l) => l !== lang.code));
+                          }
+                        } else {
+                          setEditLanguages([...editLanguages, lang.code]);
+                        }
+                      }}
+                      className={`px-2.5 py-1 rounded-md text-xs flex items-center gap-1.5 border transition-all ${
+                        isSelected
+                          ? "bg-primary text-primary-foreground border-primary font-semibold shadow-2xs"
+                          : "bg-background text-muted-foreground border-border hover:bg-muted"
+                      }`}
+                    >
+                      <span>{lang.flag}</span>
+                      <span>{lang.native}</span>
+                      <span className="text-[10px] opacity-80">({lang.label})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="space-y-1.5 p-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5">
               <Label className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
                 <Phone className="h-3.5 w-3.5" />
@@ -921,7 +1460,39 @@ export function LeadRoutingPanel() {
             <Button variant="outline" size="sm" onClick={() => setEditingExec(null)}>
               Cancel
             </Button>
-            <Button size="sm" onClick={handleSaveEditExec} disabled={saving} className="gap-1.5">
+            <Button
+              size="sm"
+              onClick={() => {
+                if (!config || !editingExec) return;
+                if (!editName.trim() || !editPhone.trim()) {
+                  toast.error("Please enter both Executive Name and WhatsApp Number");
+                  return;
+                }
+
+                const cleanPhone = editPhone.replace(/\D/g, "");
+                if (cleanPhone.length < 10) {
+                  toast.error("Please enter a valid 10+ digit WhatsApp number");
+                  return;
+                }
+
+                const updatedExecs = config.executives.map((e) =>
+                  e.id === editingExec.id
+                    ? {
+                        ...e,
+                        name: editName.trim().toUpperCase(),
+                        tamilName: editTamilName.trim() || undefined,
+                        phone: cleanPhone.startsWith("91") ? cleanPhone : `91${cleanPhone}`,
+                        languages: editLanguages,
+                      }
+                    : e
+                );
+
+                handleSaveConfig({ executives: updatedExecs });
+                setEditingExec(null);
+              }}
+              disabled={saving}
+              className="gap-1.5"
+            >
               <Check className="h-4 w-4" />
               Save Changes
             </Button>
