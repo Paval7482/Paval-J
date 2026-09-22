@@ -741,6 +741,7 @@ export async function sendLeadAlerts({
               requirement || "Murukku Machine",
               location || "Tamil Nadu",
               nowStr,
+              String(sla || 5),
             ],
           });
           console.info(
@@ -795,6 +796,7 @@ export async function sendLeadAlerts({
             requirement || "Murukku Machine",
             location || "Tamil Nadu",
             nowStr,
+            String(sla || 5),
           ],
         });
         console.info(

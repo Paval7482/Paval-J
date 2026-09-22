@@ -316,6 +316,7 @@ export async function POST(req: Request) {
             testLead.requirement,
             testLead.location,
             nowStr,
+            String(config.slaMinutes || 5),
           ],
         });
       } catch {
@@ -362,6 +363,7 @@ export async function POST(req: Request) {
             testLead.requirement,
             testLead.location,
             nowStr,
+            String(config.slaMinutes || 5),
           ],
         });
       } catch {
