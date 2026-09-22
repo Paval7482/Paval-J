@@ -50,9 +50,14 @@ function LoginPageInner() {
     setLoading(true);
 
     const rawInput = email.trim().toLowerCase();
+    const aliases: Record<string, string> = {
+      karthick: "karthick_v@srilakshmiindustries.co.in",
+      admin: "admin@srilakshmiindustries.co.in",
+    };
+
     const cleanEmail = rawInput.includes("@")
       ? rawInput
-      : `${rawInput.replace(/[^a-z0-9._-]/g, "")}@srilakshmiindustries.co.in`;
+      : aliases[rawInput] || `${rawInput.replace(/[^a-z0-9._-]/g, "")}@srilakshmiindustries.co.in`;
 
     const { error } = await supabase.auth.signInWithPassword({
       email: cleanEmail,
