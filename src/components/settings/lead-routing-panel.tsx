@@ -721,41 +721,41 @@ export function LeadRoutingPanel() {
                     </div>
                   </div>
 
-                  {/* 6-Language Sub-Tabs Bar */}
-                  <div className="p-3 bg-gradient-to-r from-primary/10 via-background to-primary/5 rounded-xl border-2 border-primary/30 shadow-xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                        <span className="text-base">🌐</span>
-                        <span>Select Language to Edit / View Greeting:</span>
-                      </span>
-                      <Badge className="bg-primary text-primary-foreground text-[10px] font-semibold uppercase px-2 py-0.5">
-                        Active: {SUPPORTED_LANGUAGES.find(l => l.code === activeCustomerLang)?.label} ({activeCustomerLang.toUpperCase()})
+                  {/* Clean Greeting Header with + Create / Customize Language Option */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-muted/40 rounded-xl border border-border">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={`text-xs font-semibold px-2.5 py-1 ${activeCustomerLang === "all_in_one" ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/30" : "bg-primary/10 text-primary border-primary/30"}`}>
+                        {activeCustomerLang === "all_in_one" ? "✨ Primary Greeting (All-in-One Company Profile)" : `🌐 ${SUPPORTED_LANGUAGES.find(l => l.code === activeCustomerLang)?.native || activeCustomerLang} Greeting`}
                       </Badge>
+                      {activeCustomerLang !== "all_in_one" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setActiveCustomerLang("all_in_one")}
+                          className="text-xs h-7 text-muted-foreground hover:text-foreground"
+                        >
+                          ← Back to Primary Greeting
+                        </Button>
+                      )}
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-2 pt-1">
-                      {SUPPORTED_LANGUAGES.map((lang) => (
-                        <button
-                          key={lang.code}
-                          type="button"
-                          onClick={() => setActiveCustomerLang(lang.code)}
-                          className={`px-2 py-2 rounded-lg text-xs font-semibold transition-all flex flex-col items-center justify-center gap-0.5 border ${
-                            activeCustomerLang === lang.code
-                              ? "bg-primary text-primary-foreground border-primary shadow-md scale-[1.02] ring-2 ring-primary/40"
-                              : lang.code === "all_in_one"
-                              ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/20"
-                              : "bg-background text-foreground hover:bg-muted/80 hover:border-primary/50 border-border shadow-2xs"
-                          }`}
-                        >
-                          <div className="flex items-center gap-1 text-xs">
-                            <span>{lang.flag}</span>
-                            <span className="truncate">{lang.native}</span>
-                          </div>
-                          <span className={`text-[10px] font-normal truncate ${activeCustomerLang === lang.code ? "text-primary-foreground/90" : "text-muted-foreground"}`}>
-                            {lang.label}
-                          </span>
-                        </button>
-                      ))}
+                    {/* Optional Language Switcher Dropdown */}
+                    <div className="flex items-center gap-1.5">
+                      <select
+                        value={activeCustomerLang}
+                        onChange={(e) => setActiveCustomerLang(e.target.value as SupportedLanguage)}
+                        className="text-xs rounded-md border border-border bg-background px-2.5 py-1 text-foreground shadow-2xs font-medium cursor-pointer focus:ring-1 focus:ring-primary"
+                      >
+                        <option value="all_in_one">✨ Primary Greeting (All-in-One)</option>
+                        <optgroup label="Optional Specific Languages">
+                          <option value="ta">🇮🇳 தமிழ் (Tamil)</option>
+                          <option value="en">🌐 English</option>
+                          <option value="hi">🇮🇳 हिंदी (Hindi)</option>
+                          <option value="kn">🇮🇳 ಕನ್ನಡ (Kannada)</option>
+                          <option value="ml">🇮🇳 മലയാളം (Malayalam)</option>
+                          <option value="te">🇮🇳 తెలుగు (Telugu)</option>
+                        </optgroup>
+                      </select>
                     </div>
                   </div>
 
