@@ -936,29 +936,30 @@ function parseMetaLeadText(text: string): ParsedLeadInfo {
   let state: string | undefined
   let businessType: string | undefined
 
-  const nameMatch = text.match(/(?:full\s*name|name)\s*[:\-]\s*([^\n\r,]+)/i)
+  const nameMatch = text.match(/(?:full\s*name|name)\s*[:\-]+\s*([^\n\r,]+)/i)
   if (nameMatch && nameMatch[1]?.trim()) {
-    name = nameMatch[1].trim()
+    name = nameMatch[1].trim().replace(/^:+/, '').trim()
   }
 
-  const phoneMatch = text.match(/(?:phone\s*(?:number)?|mobile|contact)\s*[:\-]\s*([^\n\r,]+)/i)
+  const phoneMatch = text.match(/(?:phone\s*(?:number)?|mobile|contact)\s*[:\-]+\s*([^\n\r,]+)/i)
   if (phoneMatch && phoneMatch[1]?.trim()) {
-    phone = phoneMatch[1].trim().replace(/\s+/g, '')
+    phone = phoneMatch[1].trim().replace(/^:+/, '').trim().replace(/\s+/g, '')
   }
 
-  const stateMatch = text.match(/(?:state|city|location|place)\s*[:\-]\s*([^\n\r,]+)/i)
+  const stateMatch = text.match(/(?:state|city|location|place)\s*[:\-]+\s*([^\n\r,]+)/i)
   if (stateMatch && stateMatch[1]?.trim()) {
-    state = stateMatch[1].trim()
+    state = stateMatch[1].trim().replace(/^:+/, '').trim().replace(/["']+$/, '')
   }
 
-  const bizMatch = text.match(/(?:business\s*type|requirement|product|interest)\s*[:\-]\s*([^\n\r,]+)/i)
+  const bizMatch = text.match(/(?:business\s*type|requirement|product|interest)\s*[:\-]+\s*([^\n\r,]+)/i)
   if (bizMatch && bizMatch[1]?.trim()) {
-    businessType = bizMatch[1].trim()
+    businessType = bizMatch[1].trim().replace(/^:+/, '').trim()
   }
 
   const isLeadForm = Boolean(
     name ||
     businessType ||
+    phone ||
     /filled in your form/i.test(text) ||
     /like to know more about your business/i.test(text) ||
     /facebook/i.test(text) ||
@@ -997,12 +998,12 @@ async function dispatchInstantLeadAlert(args: {
 
   if (!phoneNumberId) return
 
-  const cleanCustomerPhone = senderPhone.replace(/[^0-9]/g, '')
+  const parsedLead = parseMetaLeadText(inboundText)
+  const cleanCustomerPhone = (parsedLead.phone ? parsedLead.phone.replace(/[^0-9]/g, '') : senderPhone.replace(/[^0-9]/g, ''))
 
   // Never send alert if the customer messaging is MD Sir or the system itself
   if (cleanCustomerPhone === MD_SIR_PHONE) return
 
-  const parsedLead = parseMetaLeadText(inboundText)
   const customerDisplayName =
     parsedLead.name ||
     contactRecord.name ||
@@ -1034,30 +1035,37 @@ async function dispatchInstantLeadAlert(args: {
   })
 
   try {
-    const { data: convRow } = await supabaseAdmin()
-      .from('conversations')
-      .select('id, assigned_agent_id')
-      .eq('id', conversationId)
-      .maybeSingle()
-
-    // Only reuse existing assigned agent if it was already assigned to an active executive
-    if (convRow?.assigned_agent_id) {
-      const existing = findExecutiveByUserId(convRow.assigned_agent_id)
-      if (existing && existing.active !== false) {
-        chosenExec = existing
-      }
-    }
-
-    if (!chosenExec) {
+    // If it's a lead form or first message, assign freshly to the next executive according to active strategy!
+    if (parsedLead.isLeadForm || isFirstInboundMessage) {
       chosenExec = await getNextRoundRobinExecutiveAsync(undefined, detectedLang)
-      // Auto-assign the conversation to the chosen executive
       await supabaseAdmin()
         .from('conversations')
         .update({ assigned_agent_id: chosenExec.user_id, assigned_to: chosenExec.user_id })
         .eq('id', conversationId)
       console.info(
-        `[LeadRouting] Assigned conversation ${conversationId} to ${chosenExec.name} (${chosenExec.user_id})`
+        `[LeadRouting] Assigned new lead/form conversation ${conversationId} to ${chosenExec.name} (${chosenExec.user_id})`
       )
+    } else {
+      const { data: convRow } = await supabaseAdmin()
+        .from('conversations')
+        .select('id, assigned_agent_id')
+        .eq('id', conversationId)
+        .maybeSingle()
+
+      if (convRow?.assigned_agent_id) {
+        const existing = findExecutiveByUserId(convRow.assigned_agent_id)
+        if (existing && existing.active !== false) {
+          chosenExec = existing
+        }
+      }
+
+      if (!chosenExec) {
+        chosenExec = await getNextRoundRobinExecutiveAsync(undefined, detectedLang)
+        await supabaseAdmin()
+          .from('conversations')
+          .update({ assigned_agent_id: chosenExec.user_id, assigned_to: chosenExec.user_id })
+          .eq('id', conversationId)
+      }
     }
   } catch (assignErr) {
     console.warn('[webhook] lead conversation assignment error:', assignErr)

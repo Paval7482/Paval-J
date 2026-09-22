@@ -524,12 +524,9 @@ export function getNextRoundRobinExecutive(
       pool = matching;
     }
   }
-  // 3. Round Robin / Default with optional language matching fallback
-  else if (targetLanguage) {
-    const matching = activeExecs.filter((e) => e.languages && e.languages.includes(targetLanguage));
-    if (matching.length > 0) {
-      pool = matching;
-    }
+  // 3. Strict Round Robin (Equal Rotation among all active executives)
+  else {
+    pool = activeExecs;
   }
 
   if (pool.length === 0) pool = activeExecs;
@@ -538,7 +535,7 @@ export function getNextRoundRobinExecutive(
   if (typeof indexSeed === "number" && !isNaN(indexSeed)) {
     idx = Math.abs(indexSeed) % pool.length;
   } else {
-    idx = (config.lastAssignedIndex + 1) % pool.length;
+    idx = ((typeof config.lastAssignedIndex === "number" ? config.lastAssignedIndex : 0) + 1) % pool.length;
     config.lastAssignedIndex = idx;
     // Async save updated index in background without blocking
     saveLeadRoutingConfig({ lastAssignedIndex: idx }).catch(() => {});
@@ -603,12 +600,9 @@ export async function getNextRoundRobinExecutiveAsync(
       console.warn("[lead-alert] Workload balancing query error:", e);
     }
   }
-  // 4. Default with optional language matching fallback
-  else if (targetLanguage) {
-    const matching = activeExecs.filter((e) => e.languages && e.languages.includes(targetLanguage));
-    if (matching.length > 0) {
-      pool = matching;
-    }
+  // 4. Strict Round Robin (Equal Rotation among all active executives)
+  else {
+    pool = activeExecs;
   }
 
   if (pool.length === 0) pool = activeExecs;
@@ -617,7 +611,7 @@ export async function getNextRoundRobinExecutiveAsync(
   if (typeof indexSeed === "number" && !isNaN(indexSeed)) {
     idx = Math.abs(indexSeed) % pool.length;
   } else {
-    idx = (typeof config.lastAssignedIndex === "number" ? config.lastAssignedIndex + 1 : 0) % pool.length;
+    idx = ((typeof config.lastAssignedIndex === "number" ? config.lastAssignedIndex : 0) + 1) % pool.length;
     await saveLeadRoutingConfig({ lastAssignedIndex: idx });
   }
 
