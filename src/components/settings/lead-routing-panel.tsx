@@ -1107,14 +1107,26 @@ export function LeadRoutingPanel() {
             <div className="flex items-center gap-2">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <UsersRound className="h-5 w-5 text-primary" />
-                Sales Executives Pool & Priority Sequence
+                {config.assignmentMethod === "priority_sequence"
+                  ? "Sales Executives Pool (Custom Priority Sequence)"
+                  : config.assignmentMethod === "language_match"
+                  ? "Sales Executives Pool (Language-Wise Roster)"
+                  : config.assignmentMethod === "workload_balanced"
+                  ? "Sales Executives Pool (Workload Balanced Roster)"
+                  : "Sales Executives Pool (Round-Robin Equal Rotation)"}
               </CardTitle>
               <Badge variant="secondary" className="text-xs">
                 {activeExecsCount} Active / {config.executives.length} Total
               </Badge>
             </div>
             <CardDescription className="text-xs mt-0.5">
-              Re-order using <b>[ ⬆️ ] [ ⬇️ ]</b> buttons or rank dropdown to set 1st Lead, 2nd Lead, 3rd Lead order.
+              {config.assignmentMethod === "priority_sequence"
+                ? "Re-order executives using [ ⬆️ ] [ ⬇️ ] buttons or the rank dropdown to set 1st Lead, 2nd Lead, 3rd Lead order."
+                : config.assignmentMethod === "language_match"
+                ? "Leads are routed to executives speaking the customer's preferred language (Tamil, Telugu, Malayalam, Hindi, Kannada, English)."
+                : config.assignmentMethod === "workload_balanced"
+                ? "Leads are distributed automatically to executives with the lowest current workload."
+                : "Leads are rotated equally through active executives in equal turn-by-turn rotation."}
             </CardDescription>
           </div>
 
@@ -1128,7 +1140,8 @@ export function LeadRoutingPanel() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {config.executives.map((exec, idx) => {
               const priorityNum = exec.priority || idx + 1;
-              const activeList = config.assignmentMethod === "priority_sequence"
+              const isPriorityMode = config.assignmentMethod === "priority_sequence";
+              const activeList = isPriorityMode
                 ? [...config.executives].sort((a, b) => (a.priority || 999) - (b.priority || 999)).filter((e) => e.active !== false)
                 : config.executives.filter((e) => e.active !== false);
               const nextIdx = (config.lastAssignedIndex + 1) % (activeList.length || 1);
@@ -1146,44 +1159,46 @@ export function LeadRoutingPanel() {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    {/* Priority Sequence Rank & Up/Down Controls */}
-                    <div className="flex flex-col items-center gap-0.5">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
-                        disabled={idx === 0}
-                        onClick={() => handleMoveExecutive(exec.id, "up")}
-                        title="Move Up in Priority (Earlier Lead)"
-                      >
-                        <ArrowUp className="h-3.5 w-3.5" />
-                      </Button>
+                    {/* Priority Sequence Rank & Up/Down Controls (ONLY VISIBLE IN PRIORITY SEQUENCE MODE) */}
+                    {isPriorityMode && (
+                      <div className="flex flex-col items-center gap-0.5">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
+                          disabled={idx === 0}
+                          onClick={() => handleMoveExecutive(exec.id, "up")}
+                          title="Move Up in Priority (Earlier Lead)"
+                        >
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </Button>
 
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] font-mono font-bold px-1.5 py-0.5 h-5 flex items-center justify-center ${
-                          priorityNum === 1
-                            ? "bg-amber-500/10 text-amber-700 border-amber-500/30"
-                            : priorityNum === 2
-                            ? "bg-blue-500/10 text-blue-700 border-blue-500/30"
-                            : "bg-muted text-foreground border-border"
-                        }`}
-                        title={`Assigned Lead #${priorityNum} in Sequence`}
-                      >
-                        #{priorityNum}
-                      </Badge>
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] font-mono font-bold px-1.5 py-0.5 h-5 flex items-center justify-center ${
+                            priorityNum === 1
+                              ? "bg-amber-500/10 text-amber-700 border-amber-500/30"
+                              : priorityNum === 2
+                              ? "bg-blue-500/10 text-blue-700 border-blue-500/30"
+                              : "bg-muted text-foreground border-border"
+                          }`}
+                          title={`Assigned Lead #${priorityNum} in Sequence`}
+                        >
+                          #{priorityNum}
+                        </Badge>
 
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
-                        disabled={idx === config.executives.length - 1}
-                        onClick={() => handleMoveExecutive(exec.id, "down")}
-                        title="Move Down in Priority (Later Lead)"
-                      >
-                        <ArrowDown className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
+                          disabled={idx === config.executives.length - 1}
+                          onClick={() => handleMoveExecutive(exec.id, "down")}
+                          title="Move Down in Priority (Later Lead)"
+                        >
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    )}
 
                     <div
                       className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
@@ -1233,9 +1248,13 @@ export function LeadRoutingPanel() {
                           +{exec.phone}
                         </a>
                         <span className="text-border">•</span>
-                        <span className="text-[11px] font-medium text-primary">
-                          {priorityNum === 1 ? "1st Lead" : priorityNum === 2 ? "2nd Lead" : priorityNum === 3 ? "3rd Lead" : `${priorityNum}th Lead`}
-                        </span>
+                        {isPriorityMode ? (
+                          <span className="text-[11px] font-medium text-primary">
+                            {priorityNum === 1 ? "1st Lead" : priorityNum === 2 ? "2nd Lead" : priorityNum === 3 ? "3rd Lead" : `${priorityNum}th Lead`}
+                          </span>
+                        ) : (
+                          <span>{exec.role || "Sales Executive"}</span>
+                        )}
                       </div>
 
                       {/* Language Badges */}
@@ -1257,19 +1276,21 @@ export function LeadRoutingPanel() {
                   </div>
 
                   <div className="flex items-center gap-1.5">
-                    {/* Quick Priority Select Dropdown */}
-                    <select
-                      value={String(priorityNum)}
-                      onChange={(e) => handleSetExecutivePriority(exec.id, parseInt(e.target.value))}
-                      className="text-xs rounded-md border border-border bg-background px-2 py-1 text-foreground shadow-2xs font-medium cursor-pointer"
-                      title="Set Priority Rank Position"
-                    >
-                      {config.executives.map((_, pIdx) => (
-                        <option key={pIdx + 1} value={pIdx + 1}>
-                          #{pIdx + 1} {pIdx === 0 ? "(1st)" : pIdx === 1 ? "(2nd)" : pIdx === 2 ? "(3rd)" : `(${pIdx + 1}th)`}
-                        </option>
-                      ))}
-                    </select>
+                    {/* Quick Priority Select Dropdown (ONLY VISIBLE IN PRIORITY SEQUENCE MODE) */}
+                    {isPriorityMode && (
+                      <select
+                        value={String(priorityNum)}
+                        onChange={(e) => handleSetExecutivePriority(exec.id, parseInt(e.target.value))}
+                        className="text-xs rounded-md border border-border bg-background px-2 py-1 text-foreground shadow-2xs font-medium cursor-pointer"
+                        title="Set Priority Rank Position"
+                      >
+                        {config.executives.map((_, pIdx) => (
+                          <option key={pIdx + 1} value={pIdx + 1}>
+                            #{pIdx + 1} {pIdx === 0 ? "(1st)" : pIdx === 1 ? "(2nd)" : pIdx === 2 ? "(3rd)" : `(${pIdx + 1}th)`}
+                          </option>
+                        ))}
+                      </select>
+                    )}
 
                     {/* Edit Executive Button */}
                     <Button
@@ -1310,7 +1331,7 @@ export function LeadRoutingPanel() {
                     <Switch
                       checked={exec.active}
                       onCheckedChange={() => handleToggleExecActive(exec.id, exec.active)}
-                      title={exec.active ? "Set On Leave (Skip in Round-Robin)" : "Set Active"}
+                      title={exec.active ? "Set On Leave (Skip in Rotation)" : "Set Active"}
                     />
 
                     {/* Delete Button */}
