@@ -10,16 +10,19 @@ export async function GET() {
     const config = await getLeadRoutingConfig();
     const admin = supabaseAdmin();
 
-    // Fetch team members to assist linking user profiles
-    const { data: profiles } = await admin
-      .from("profiles")
-      .select("*")
-      .order("full_name", { ascending: true });
+    let profiles: any[] = [];
+    if (admin) {
+      const { data } = await admin
+        .from("profiles")
+        .select("*")
+        .order("full_name", { ascending: true });
+      profiles = data || [];
+    }
 
     return NextResponse.json({
       ok: true,
       config,
-      teamMembers: profiles || [],
+      teamMembers: profiles,
     });
   } catch (err: any) {
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
