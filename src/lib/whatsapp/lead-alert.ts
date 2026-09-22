@@ -1,4 +1,4 @@
-import { sendTextMessage } from "@/lib/whatsapp/meta-api";
+import { sendTextMessage, sendTemplateMessage } from "@/lib/whatsapp/meta-api";
 import { supabaseAdmin } from "@/lib/automations/admin-client";
 
 export type SupportedLanguage = "all_in_one" | "ta" | "en" | "hi" | "kn" | "ml" | "te";
@@ -678,15 +678,40 @@ export async function sendLeadAlerts({
     for (const admin of activeAdmins) {
       const cleanAdminPhone = admin.phone.replace(/\D/g, "");
       try {
-        await sendTextMessage({
-          phoneNumberId,
-          accessToken,
-          to: cleanAdminPhone,
-          text: mdMsg,
-        });
-        console.info(
-          `[LeadAlert] Management summary sent to ${admin.name} (${cleanAdminPhone})`
-        );
+        // First try approved Meta Utility template (Delivers 24/7 without needing recipient to send 'HI')
+        try {
+          await sendTemplateMessage({
+            phoneNumberId,
+            accessToken,
+            to: cleanAdminPhone,
+            templateName: "sli_sales_lead_alert",
+            language: "en_US",
+            params: [
+              customerName || "New Lead",
+              cleanCustomerPhone,
+              requirement || "Murukku Machine",
+              location || "Tamil Nadu",
+              nowStr,
+            ],
+          });
+          console.info(
+            `[LeadAlert] Management summary delivered via approved Meta Template sli_sales_lead_alert to ${admin.name} (${cleanAdminPhone})`
+          );
+        } catch (templateErr) {
+          console.warn(
+            `[LeadAlert] Meta Template dispatch fallback to text message for ${admin.name}:`,
+            templateErr
+          );
+          await sendTextMessage({
+            phoneNumberId,
+            accessToken,
+            to: cleanAdminPhone,
+            text: mdMsg,
+          });
+          console.info(
+            `[LeadAlert] Management summary sent via text to ${admin.name} (${cleanAdminPhone})`
+          );
+        }
       } catch (err) {
         console.error(
           `[LeadAlert] Failed to send alert to admin ${admin.name} (${cleanAdminPhone}):`,
@@ -707,15 +732,40 @@ export async function sendLeadAlerts({
     const execMsg = renderLeadTemplate(execTemplate, templateVars);
 
     try {
-      await sendTextMessage({
-        phoneNumberId,
-        accessToken,
-        to: cleanExecPhone,
-        text: execMsg,
-      });
-      console.info(
-        `[LeadAlert] Urgent lead alert sent to executive ${assignedExec.name} (${cleanExecPhone})`
-      );
+      // First try approved Meta Utility template (Delivers 24/7 without needing recipient to send 'HI')
+      try {
+        await sendTemplateMessage({
+          phoneNumberId,
+          accessToken,
+          to: cleanExecPhone,
+          templateName: "sli_sales_lead_alert",
+          language: "en_US",
+          params: [
+            customerName || "New Lead",
+            cleanCustomerPhone,
+            requirement || "Murukku Machine",
+            location || "Tamil Nadu",
+            nowStr,
+          ],
+        });
+        console.info(
+          `[LeadAlert] Urgent lead alert delivered via approved Meta Template sli_sales_lead_alert to ${assignedExec.name} (${cleanExecPhone})`
+        );
+      } catch (templateErr) {
+        console.warn(
+          `[LeadAlert] Meta Template dispatch fallback to text message for ${assignedExec.name}:`,
+          templateErr
+        );
+        await sendTextMessage({
+          phoneNumberId,
+          accessToken,
+          to: cleanExecPhone,
+          text: execMsg,
+        });
+        console.info(
+          `[LeadAlert] Urgent lead alert sent via text to executive ${assignedExec.name} (${cleanExecPhone})`
+        );
+      }
     } catch (err) {
       console.error(
         `[LeadAlert] Failed to send alert to executive ${assignedExec.name}:`,

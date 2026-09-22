@@ -5,7 +5,7 @@ import {
 } from "@/lib/whatsapp/lead-alert";
 import { supabaseAdmin } from "@/lib/automations/admin-client";
 import { decrypt } from "@/lib/whatsapp/encryption";
-import { sendTextMessage } from "@/lib/whatsapp/meta-api";
+import { sendTextMessage, sendTemplateMessage } from "@/lib/whatsapp/meta-api";
 
 export async function POST(req: Request) {
   try {
@@ -81,12 +81,29 @@ export async function POST(req: Request) {
         `━━━━━━━━━━━━━━━━━━━━━━\n` +
         `- *Sri Lakshmi Industries CRM Flow*`;
 
-      await sendTextMessage({
-        phoneNumberId: wabaConfig.phone_number_id,
-        accessToken,
-        to: cleanPhone,
-        text: execMsg,
-      });
+      try {
+        await sendTemplateMessage({
+          phoneNumberId: wabaConfig.phone_number_id,
+          accessToken,
+          to: cleanPhone,
+          templateName: "sli_sales_lead_alert",
+          language: "en_US",
+          params: [
+            testLead.customerName,
+            testLead.customerPhone,
+            testLead.requirement,
+            testLead.location,
+            nowStr,
+          ],
+        });
+      } catch (tmplErr) {
+        await sendTextMessage({
+          phoneNumberId: wabaConfig.phone_number_id,
+          accessToken,
+          to: cleanPhone,
+          text: execMsg,
+        });
+      }
 
       return NextResponse.json({
         ok: true,
@@ -117,12 +134,29 @@ export async function POST(req: Request) {
         `⚡ *Note:* This is a test alert verifying management notifications.\n` +
         `🔗 *CRM:* https://sli-crm-rho.vercel.app/inbox`;
 
-      await sendTextMessage({
-        phoneNumberId: wabaConfig.phone_number_id,
-        accessToken,
-        to: cleanPhone,
-        text: adminMsg,
-      });
+      try {
+        await sendTemplateMessage({
+          phoneNumberId: wabaConfig.phone_number_id,
+          accessToken,
+          to: cleanPhone,
+          templateName: "sli_sales_lead_alert",
+          language: "en_US",
+          params: [
+            testLead.customerName,
+            testLead.customerPhone,
+            testLead.requirement,
+            testLead.location,
+            nowStr,
+          ],
+        });
+      } catch (tmplErr) {
+        await sendTextMessage({
+          phoneNumberId: wabaConfig.phone_number_id,
+          accessToken,
+          to: cleanPhone,
+          text: adminMsg,
+        });
+      }
 
       return NextResponse.json({
         ok: true,
