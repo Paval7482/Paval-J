@@ -323,7 +323,7 @@ let lastCacheTime = 0;
 
 export async function getLeadRoutingConfig(): Promise<LeadRoutingConfig> {
   const now = Date.now();
-  if (now - lastCacheTime < 30000 && cachedConfig) {
+  if (now - lastCacheTime < 5000 && cachedConfig) {
     return cachedConfig;
   }
 
@@ -336,21 +336,30 @@ export async function getLeadRoutingConfig(): Promise<LeadRoutingConfig> {
       .maybeSingle();
 
     if (data?.color) {
-      const parsed = JSON.parse(data.color);
-      cachedConfig = {
-        ...DEFAULT_ROUTING_CONFIG,
-        ...parsed,
-        executives: parsed.executives || DEFAULT_SALES_EXECUTIVES,
-        adminRecipients: parsed.adminRecipients || DEFAULT_ADMIN_RECIPIENTS,
-      };
-      lastCacheTime = now;
-      return cachedConfig;
+      try {
+        const parsed = JSON.parse(data.color);
+        const resolved: LeadRoutingConfig = {
+          ...DEFAULT_ROUTING_CONFIG,
+          ...parsed,
+          executives: parsed.executives || DEFAULT_SALES_EXECUTIVES,
+          adminRecipients: parsed.adminRecipients || DEFAULT_ADMIN_RECIPIENTS,
+        };
+        cachedConfig = resolved;
+        lastCacheTime = now;
+        return resolved;
+      } catch (e) {
+        console.error("[lead-alert] Error parsing routing config JSON:", e);
+      }
     }
   } catch (err) {
-    console.error("[lead-alert] Error loading routing config:", err);
+    console.error("[lead-alert] Error loading routing config from DB:", err);
   }
 
-  return cachedConfig || DEFAULT_ROUTING_CONFIG;
+  if (!cachedConfig) {
+    cachedConfig = { ...DEFAULT_ROUTING_CONFIG };
+  }
+  lastCacheTime = now;
+  return cachedConfig;
 }
 
 export async function saveLeadRoutingConfig(
@@ -361,6 +370,9 @@ export async function saveLeadRoutingConfig(
     ...current,
     ...partial,
   };
+
+  cachedConfig = updated;
+  lastCacheTime = Date.now();
 
   try {
     const admin = supabaseAdmin();
@@ -373,29 +385,40 @@ export async function saveLeadRoutingConfig(
     const configJson = JSON.stringify(updated);
 
     if (existing) {
-      await admin
+      const { error: updateErr } = await admin
         .from("tags")
         .update({ color: configJson })
         .eq("id", existing.id);
+      if (updateErr) {
+        console.error("[lead-alert] Error updating config in DB:", updateErr);
+      }
     } else {
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("id, user_id, account_id")
+        .limit(1)
+        .maybeSingle();
+
       const { data: acc } = await admin
         .from("accounts")
         .select("id")
         .limit(1)
         .maybeSingle();
-      if (acc) {
-        await admin.from("tags").insert({
-          account_id: acc.id,
-          name: CONFIG_TAG_NAME,
-          color: configJson,
-        });
+
+      const insertPayload: any = {
+        name: CONFIG_TAG_NAME,
+        color: configJson,
+      };
+      if (profile?.user_id) insertPayload.user_id = profile.user_id;
+      if (acc?.id || profile?.account_id) insertPayload.account_id = acc?.id || profile?.account_id;
+
+      const { error: insertErr } = await admin.from("tags").insert(insertPayload);
+      if (insertErr) {
+        console.error("[lead-alert] Error inserting config in DB:", insertErr);
       }
     }
-
-    cachedConfig = updated;
-    lastCacheTime = Date.now();
   } catch (err) {
-    console.error("[lead-alert] Error saving routing config:", err);
+    console.error("[lead-alert] Error saving routing config to DB:", err);
   }
 
   return updated;

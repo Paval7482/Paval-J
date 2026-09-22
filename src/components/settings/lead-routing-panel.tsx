@@ -166,8 +166,18 @@ export function LeadRoutingPanel() {
         setExecTemplate(data.config.executiveAlertTemplate || DEFAULT_EXECUTIVE_TEMPLATE);
         setAdminTemplate(data.config.adminAlertTemplate || DEFAULT_ADMIN_TEMPLATE);
         setTeamMembers(data.teamMembers || []);
+        try {
+          localStorage.setItem("sli_lead_routing_backup", JSON.stringify(data.config));
+        } catch {}
       }
     } catch {
+      try {
+        const localBackup = localStorage.getItem("sli_lead_routing_backup");
+        if (localBackup) {
+          const parsed = JSON.parse(localBackup);
+          setConfig(parsed);
+        }
+      } catch {}
       toast.error("Failed to load Lead Routing settings");
     } finally {
       setLoading(false);
@@ -190,6 +200,9 @@ export function LeadRoutingPanel() {
       const data = await res.json();
       if (data.ok && data.config) {
         setConfig(data.config);
+        try {
+          localStorage.setItem("sli_lead_routing_backup", JSON.stringify(data.config));
+        } catch {}
         if (data.config.multilingualCustomerTemplates) {
           setMultilingualTemplates({
             ...MULTILINGUAL_CUSTOMER_WELCOME_TEMPLATES,
@@ -357,6 +370,7 @@ export function LeadRoutingPanel() {
     setEditName(exec.name);
     setEditTamilName(exec.tamilName || "");
     setEditPhone(exec.phone);
+    setEditLanguages(exec.languages && exec.languages.length > 0 ? exec.languages : ["ta", "en"]);
   };
 
   const handleSaveEditExec = () => {
@@ -379,6 +393,7 @@ export function LeadRoutingPanel() {
             name: editName.trim().toUpperCase(),
             tamilName: editTamilName.trim() || undefined,
             phone: cleanPhone.startsWith("91") ? cleanPhone : `91${cleanPhone}`,
+            languages: editLanguages,
           }
         : e
     );
