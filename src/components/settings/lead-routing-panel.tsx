@@ -128,12 +128,19 @@ export function LeadRoutingPanel() {
 
   // Template Customization State
   const [activeTemplateTab, setActiveTemplateTab] = useState<"customer" | "executive" | "admin">("customer");
-  const [activeCustomerLang, setActiveCustomerLang] = useState<SupportedLanguage>("all_in_one");
+  const [activeCustomerLang, setActiveCustomerLang] = useState<SupportedLanguage>("en");
   const [multilingualTemplates, setMultilingualTemplates] = useState<Record<SupportedLanguage, string>>(
     MULTILINGUAL_CUSTOMER_WELCOME_TEMPLATES
   );
   const [execTemplate, setExecTemplate] = useState<string>(DEFAULT_EXECUTIVE_TEMPLATE);
   const [adminTemplate, setAdminTemplate] = useState<string>(DEFAULT_ADMIN_TEMPLATE);
+
+  // Instant Multi-Strategy Testing & Simulation State
+  const [simulatingMethod, setSimulatingMethod] = useState<string | null>(null);
+  const [simulationResult, setSimulationResult] = useState<any | null>(null);
+  const [sendRealWhatsAppOnTest, setSendRealWhatsAppOnTest] = useState(false);
+  const [testSimLanguage, setTestSimLanguage] = useState<SupportedLanguage>("en");
+  const [testSimLocation, setTestSimLocation] = useState<string>("Tamil Nadu");
 
   // Add Executive Dialog State
   const [showAddExec, setShowAddExec] = useState(false);
@@ -521,6 +528,45 @@ export function LeadRoutingPanel() {
       toast.error(err.message || "Failed to send test alert");
     } finally {
       setTestingId(null);
+    }
+  };
+
+  const handleRunSimulation = async (
+    methodToTest?: "round_robin" | "priority_sequence" | "language_match" | "workload_balanced",
+    langToTest?: SupportedLanguage,
+    locationToTest?: string
+  ) => {
+    const chosenMethod = methodToTest || config?.assignmentMethod || "round_robin";
+    setSimulatingMethod(chosenMethod);
+    try {
+      const res = await fetch("/api/settings/lead-routing/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetType: "simulate_assignment",
+          method: chosenMethod,
+          testLanguage: langToTest || testSimLanguage,
+          testLocation: locationToTest || testSimLocation,
+          sendActualWhatsApp: sendRealWhatsAppOnTest,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok && data.simulation) {
+        setSimulationResult(data.simulation);
+        toast.success(data.message || `Simulation successful for ${chosenMethod}!`);
+        // Refresh config to update lastAssignedIndex if round robin advanced
+        const cfgRes = await fetch("/api/settings/lead-routing");
+        const cfgData = await cfgRes.json();
+        if (cfgData.ok && cfgData.config) {
+          setConfig(cfgData.config);
+        }
+      } else {
+        throw new Error(data.error || "Simulation failed");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to run assignment simulation");
+    } finally {
+      setSimulatingMethod(null);
     }
   };
 
@@ -977,9 +1023,28 @@ export function LeadRoutingPanel() {
                   Equal rotation across all active executives turn-by-turn.
                 </p>
               </div>
-              <Badge variant="secondary" className="mt-3 w-fit text-[10px] font-normal">
-                Equal Turn-by-Turn
-              </Badge>
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <Badge variant="secondary" className="text-[10px] font-normal">
+                  Equal Turn-by-Turn
+                </Badge>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 text-[10px] px-2 font-medium hover:bg-primary/10 hover:text-primary border-primary/30"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRunSimulation("round_robin");
+                  }}
+                  disabled={simulatingMethod === "round_robin"}
+                >
+                  {simulatingMethod === "round_robin" ? (
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  ) : (
+                    <Sparkles className="h-3 w-3 mr-1 text-primary" />
+                  )}
+                  Test
+                </Button>
+              </div>
             </div>
 
             {/* OPTION 2: Priority Sequence (1st, 2nd, 3rd) */}
@@ -1005,9 +1070,28 @@ export function LeadRoutingPanel() {
                   Strict 1st Lead ➔ 2nd Lead ➔ 3rd Lead order configured below, irrespective of language.
                 </p>
               </div>
-              <Badge variant="secondary" className="mt-3 w-fit text-[10px] font-normal">
-                1st ➔ 2nd ➔ 3rd Order
-              </Badge>
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <Badge variant="secondary" className="text-[10px] font-normal">
+                  1st ➔ 2nd ➔ 3rd Order
+                </Badge>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 text-[10px] px-2 font-medium hover:bg-primary/10 hover:text-primary border-primary/30"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRunSimulation("priority_sequence");
+                  }}
+                  disabled={simulatingMethod === "priority_sequence"}
+                >
+                  {simulatingMethod === "priority_sequence" ? (
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  ) : (
+                    <Sparkles className="h-3 w-3 mr-1 text-primary" />
+                  )}
+                  Test
+                </Button>
+              </div>
             </div>
 
             {/* OPTION 3: Language-Wise Routing */}
@@ -1033,9 +1117,28 @@ export function LeadRoutingPanel() {
                   Directly routes to Tamil, Telugu, Hindi, Malayalam, or Kannada specialist executive.
                 </p>
               </div>
-              <Badge variant="secondary" className="mt-3 w-fit text-[10px] font-normal">
-                Native Language Match
-              </Badge>
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <Badge variant="secondary" className="text-[10px] font-normal">
+                  Native Language Match
+                </Badge>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 text-[10px] px-2 font-medium hover:bg-primary/10 hover:text-primary border-primary/30"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRunSimulation("language_match");
+                  }}
+                  disabled={simulatingMethod === "language_match"}
+                >
+                  {simulatingMethod === "language_match" ? (
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  ) : (
+                    <Sparkles className="h-3 w-3 mr-1 text-primary" />
+                  )}
+                  Test
+                </Button>
+              </div>
             </div>
 
             {/* OPTION 4: Workload Balanced */}
@@ -1061,10 +1164,211 @@ export function LeadRoutingPanel() {
                   Distributes leads dynamically to balance team load equally.
                 </p>
               </div>
-              <Badge variant="secondary" className="mt-3 w-fit text-[10px] font-normal">
-                Least Busy First
-              </Badge>
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <Badge variant="secondary" className="text-[10px] font-normal">
+                  Least Busy First
+                </Badge>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 text-[10px] px-2 font-medium hover:bg-primary/10 hover:text-primary border-primary/30"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRunSimulation("workload_balanced");
+                  }}
+                  disabled={simulatingMethod === "workload_balanced"}
+                >
+                  {simulatingMethod === "workload_balanced" ? (
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  ) : (
+                    <Sparkles className="h-3 w-3 mr-1 text-primary" />
+                  )}
+                  Test
+                </Button>
+              </div>
             </div>
+          </div>
+
+          {/* Interactive Live Assignment Simulation & Testing Suite Console */}
+          <div className="rounded-xl border border-primary/20 bg-card p-4 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span className="text-xs font-bold text-foreground">
+                  Interactive Lead Assignment Testing & Verification Suite
+                </span>
+                <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
+                  Instant Test
+                </Badge>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-muted-foreground">Deliver Live WhatsApp Ping:</span>
+                <Switch
+                  checked={sendRealWhatsAppOnTest}
+                  onCheckedChange={setSendRealWhatsAppOnTest}
+                  title="Send actual WhatsApp test alert to executive & admin"
+                />
+              </div>
+            </div>
+
+            {/* Quick 1-Click Test Scenarios */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-muted-foreground mr-1">Quick Scenarios:</span>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs font-medium border-border hover:bg-primary/10 hover:text-primary gap-1"
+                onClick={() => handleRunSimulation("round_robin")}
+                disabled={!!simulatingMethod}
+              >
+                {simulatingMethod === "round_robin" ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-3 w-3 text-primary" />
+                )}
+                🔄 Test Round-Robin Rotation
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs font-medium border-border hover:bg-primary/10 hover:text-primary gap-1"
+                onClick={() => handleRunSimulation("priority_sequence")}
+                disabled={!!simulatingMethod}
+              >
+                {simulatingMethod === "priority_sequence" ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <ListOrdered className="h-3 w-3 text-primary" />
+                )}
+                🔢 Test Priority #1 Order
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs font-medium border-border hover:bg-primary/10 hover:text-primary gap-1"
+                onClick={() => handleRunSimulation("language_match", "te", "Andhra Pradesh / Telangana")}
+                disabled={!!simulatingMethod}
+              >
+                {simulatingMethod === "language_match" ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Globe className="h-3 w-3 text-blue-500" />
+                )}
+                🇮🇳 Test Telugu Lead
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs font-medium border-border hover:bg-primary/10 hover:text-primary gap-1"
+                onClick={() => handleRunSimulation("language_match", "ml", "Kerala / Kochi")}
+                disabled={!!simulatingMethod}
+              >
+                {simulatingMethod === "language_match" ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Globe className="h-3 w-3 text-emerald-500" />
+                )}
+                🇮🇳 Test Malayalam Lead
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs font-medium border-border hover:bg-primary/10 hover:text-primary gap-1"
+                onClick={() => handleRunSimulation("language_match", "kn", "Karnataka / Bangalore")}
+                disabled={!!simulatingMethod}
+              >
+                {simulatingMethod === "language_match" ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Globe className="h-3 w-3 text-purple-500" />
+                )}
+                🇮🇳 Test Kannada Lead
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs font-medium border-border hover:bg-primary/10 hover:text-primary gap-1"
+                onClick={() => handleRunSimulation("language_match", "hi", "Delhi / Mumbai")}
+                disabled={!!simulatingMethod}
+              >
+                {simulatingMethod === "language_match" ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Globe className="h-3 w-3 text-amber-500" />
+                )}
+                🇮🇳 Test Hindi Lead
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs font-medium border-border hover:bg-primary/10 hover:text-primary gap-1"
+                onClick={() => handleRunSimulation("workload_balanced")}
+                disabled={!!simulatingMethod}
+              >
+                {simulatingMethod === "workload_balanced" ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Scale className="h-3 w-3 text-primary" />
+                )}
+                ⚖️ Test Workload Balance
+              </Button>
+            </div>
+
+            {/* Simulation Results Display Banner */}
+            {simulationResult && (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3.5 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-emerald-500/20 pb-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <span className="font-bold text-xs text-foreground">
+                      Simulation Result ({simulationResult.method.replace(/_/g, " ").toUpperCase()}):
+                    </span>
+                    <Badge className="bg-emerald-600 text-white font-semibold text-[11px]">
+                      Assigned to: {simulationResult.assignedExecutive.name}
+                    </Badge>
+                  </div>
+
+                  <span className="text-[11px] text-muted-foreground font-mono">
+                    +{simulationResult.assignedExecutive.phone}
+                  </span>
+                </div>
+
+                <p className="text-xs text-foreground leading-relaxed font-medium">
+                  💡 {simulationResult.reason}
+                </p>
+
+                {/* Simulated Queue Badges */}
+                {simulationResult.queue && simulationResult.queue.length > 0 && (
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-semibold text-muted-foreground">Execution Queue Order:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {simulationResult.queue.map((item: any, qIdx: number) => (
+                        <span
+                          key={qIdx}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-medium border ${
+                            item.isNext
+                              ? "bg-emerald-600 text-white border-emerald-600 font-bold shadow-xs"
+                              : "bg-background text-foreground/80 border-border"
+                          }`}
+                        >
+                          <span>#{item.rank || qIdx + 1}</span>
+                          <span>{item.name}</span>
+                          {item.isNext && <span>🎯</span>}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Live Next Lead Target Banner */}

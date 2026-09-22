@@ -175,7 +175,21 @@ Our sales executive *{{executive_name}}* has been assigned to assist you with al
 - *శ్రీ లక్ష్మి ఇండస్ట్రీస్, మధురై*`,
 };
 
-export const DEFAULT_CUSTOMER_WELCOME_TEMPLATE = DEFAULT_ALL_IN_ONE_WELCOME_TEMPLATE;
+export const DEFAULT_CUSTOMER_WELCOME_TEMPLATE = `Hello {{customer_name}}! 🙏✨
+Welcome to *Sri Lakshmi Industries*! 🏭🌾
+(Leading Manufacturer of Commercial Murukku Machines)
+
+Our sales executive *{{executive_name}}* has been assigned to assist you with all your queries regarding Murukku & Food Processing Machines. They will contact you shortly, or connect right away:
+
+👤 Sales Executive: {{executive_name}}
+📞 Contact Number: +{{executive_phone}}
+💬 WhatsApp Chat: https://wa.me/{{executive_phone}}
+📞 Direct Call: tel:+{{executive_phone}}
+
+🌐 Website: https://www.srilakshmiindustries.com
+📺 YouTube Demo: https://youtube.com/@murukkumachineprakashsrila833
+
+- *Sri Lakshmi Industries, Madurai*`;
 
 export const DEFAULT_EXECUTIVE_TEMPLATE = `🚨 *NEW LEAD ASSIGNED TO YOU! | புதிய லீட் உங்களுக்கு ஒதுக்கப்பட்டுள்ளது!*
 ━━━━━━━━━━━━━━━━━━━━━━
@@ -475,12 +489,13 @@ export function detectLanguageFromLead({
     return "hi";
   }
 
-  // Tamil / TN default
-  if (loc.includes("tamil") || loc.includes("tamil nadu") || loc.includes("chennai") || loc.includes("madurai") || loc.includes("coimbatore") || loc.includes("trichy") || loc.includes("salem") || loc.includes("tirunelveli") || loc.includes("erode") || loc.includes("vellore") || /[\u0B80-\u0BFF]/.test(msg)) {
+  // Explicit Tamil Script
+  if (loc.includes("tamil") || loc.includes("tamil nadu") || loc.includes("chennai") || loc.includes("madurai") || loc.includes("coimbatore") || /[\u0B80-\u0BFF]/.test(msg)) {
     return "ta";
   }
 
-  return "ta";
+  // Default to English as requested
+  return "en";
 }
 
 export function getNextRoundRobinExecutive(
@@ -594,7 +609,7 @@ export function getCustomerWelcomeTemplateForLang(
   lang: SupportedLanguage,
   config?: LeadRoutingConfig
 ): string {
-  // If greeting mode is explicitly set to all_in_one (or if all_in_one lang selected)
+  // If greeting mode is explicitly set to all_in_one
   if (config?.welcomeGreetingMode === "all_in_one" || lang === "all_in_one") {
     return (
       config?.multilingualCustomerTemplates?.all_in_one ||
@@ -607,10 +622,13 @@ export function getCustomerWelcomeTemplateForLang(
   if (customDict && customDict[lang]) {
     return customDict[lang];
   }
+  if (MULTILINGUAL_CUSTOMER_WELCOME_TEMPLATES[lang]) {
+    return MULTILINGUAL_CUSTOMER_WELCOME_TEMPLATES[lang];
+  }
   return (
-    MULTILINGUAL_CUSTOMER_WELCOME_TEMPLATES[lang] ||
-    config?.customerWelcomeTemplate ||
-    DEFAULT_ALL_IN_ONE_WELCOME_TEMPLATE
+    customDict?.en ||
+    MULTILINGUAL_CUSTOMER_WELCOME_TEMPLATES.en ||
+    DEFAULT_CUSTOMER_WELCOME_TEMPLATE
   );
 }
 
