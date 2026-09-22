@@ -17,6 +17,8 @@ import {
 } from '@/lib/whatsapp/template-webhook'
 import {
   getNextRoundRobinExecutive,
+  getNextRoundRobinExecutiveAsync,
+  detectLanguageFromLead,
   findExecutiveByUserId,
   sendLeadAlerts,
   MD_SIR_PHONE,
@@ -1024,8 +1026,13 @@ async function dispatchInstantLeadAlert(args: {
     }
   }
 
-  // 2. Resolve / Assign Executive via Round-Robin
+  // 2. Resolve / Assign Executive via Selected Assignment Strategy
   let chosenExec: any = null
+  const detectedLang = detectLanguageFromLead({
+    location: parsedLead.state,
+    messageText: inboundText,
+  })
+
   try {
     const { data: convRow } = await supabaseAdmin()
       .from('conversations')
@@ -1033,24 +1040,28 @@ async function dispatchInstantLeadAlert(args: {
       .eq('id', conversationId)
       .maybeSingle()
 
+    // Only reuse existing assigned agent if it was already assigned to an active executive
     if (convRow?.assigned_agent_id) {
-      chosenExec = findExecutiveByUserId(convRow.assigned_agent_id)
+      const existing = findExecutiveByUserId(convRow.assigned_agent_id)
+      if (existing && existing.active !== false) {
+        chosenExec = existing
+      }
     }
 
     if (!chosenExec) {
-      chosenExec = getNextRoundRobinExecutive()
+      chosenExec = await getNextRoundRobinExecutiveAsync(undefined, detectedLang)
       // Auto-assign the conversation to the chosen executive
       await supabaseAdmin()
         .from('conversations')
-        .update({ assigned_agent_id: chosenExec.user_id })
+        .update({ assigned_agent_id: chosenExec.user_id, assigned_to: chosenExec.user_id })
         .eq('id', conversationId)
       console.info(
-        `[RoundRobin] Assigned conversation ${conversationId} to ${chosenExec.name} (${chosenExec.user_id})`
+        `[LeadRouting] Assigned conversation ${conversationId} to ${chosenExec.name} (${chosenExec.user_id})`
       )
     }
   } catch (assignErr) {
-    console.warn('[webhook] round-robin conversation assignment error:', assignErr)
-    chosenExec = getNextRoundRobinExecutive()
+    console.warn('[webhook] lead conversation assignment error:', assignErr)
+    chosenExec = await getNextRoundRobinExecutiveAsync(undefined, detectedLang)
   }
 
   // 3. Ensure pipeline deal exists for Sri Lakshmi Industries and is assigned

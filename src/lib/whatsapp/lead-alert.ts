@@ -561,7 +561,7 @@ export async function getNextRoundRobinExecutiveAsync(
   const method = config.assignmentMethod || "round_robin";
   let pool = activeExecs;
 
-  // 1. Custom Priority Sequence Order
+  // 1. Custom Priority Sequence Order (1st, 2nd, 3rd Sequence)
   if (method === "priority_sequence") {
     pool = [...activeExecs].sort((a, b) => (a.priority || 999) - (b.priority || 999));
   }
@@ -572,7 +572,38 @@ export async function getNextRoundRobinExecutiveAsync(
       pool = matching;
     }
   }
-  // 3. Round Robin / Default with optional language matching fallback
+  // 3. Workload Balanced (Lowest Open Leads Count)
+  else if (method === "workload_balanced") {
+    try {
+      const admin = supabaseAdmin();
+      const { data: deals } = await admin
+        .from("deals")
+        .select("user_id, assigned_to, status")
+        .in("status", ["open", "enquiry", "pending", "in_progress"]);
+
+      const loadMap: Record<string, number> = {};
+      activeExecs.forEach((e) => {
+        loadMap[e.id] = 0;
+      });
+
+      if (deals) {
+        deals.forEach((d: any) => {
+          const matched = activeExecs.find(
+            (e) => e.user_id === d.user_id || e.profile_id === d.assigned_to
+          );
+          if (matched) {
+            loadMap[matched.id] = (loadMap[matched.id] || 0) + 1;
+          }
+        });
+      }
+
+      pool = [...activeExecs].sort((a, b) => (loadMap[a.id] || 0) - (loadMap[b.id] || 0));
+      return pool[0] || activeExecs[0];
+    } catch (e) {
+      console.warn("[lead-alert] Workload balancing query error:", e);
+    }
+  }
+  // 4. Default with optional language matching fallback
   else if (targetLanguage) {
     const matching = activeExecs.filter((e) => e.languages && e.languages.includes(targetLanguage));
     if (matching.length > 0) {
@@ -586,7 +617,7 @@ export async function getNextRoundRobinExecutiveAsync(
   if (typeof indexSeed === "number" && !isNaN(indexSeed)) {
     idx = Math.abs(indexSeed) % pool.length;
   } else {
-    idx = (config.lastAssignedIndex + 1) % pool.length;
+    idx = (typeof config.lastAssignedIndex === "number" ? config.lastAssignedIndex + 1 : 0) % pool.length;
     await saveLeadRoutingConfig({ lastAssignedIndex: idx });
   }
 

@@ -7,7 +7,9 @@ import {
   sendLeadAlerts,
   findExecutiveByUserId,
   findExecutiveByProfileId,
-  getNextRoundRobinExecutive,
+  getNextRoundRobinExecutiveAsync,
+  detectLanguageFromLead,
+  type SupportedLanguage,
 } from "@/lib/whatsapp/lead-alert";
 
 export const maxDuration = 60;
@@ -272,45 +274,18 @@ async function processLeadEntry({
     leadSourceTag = "meta_hindi";
   }
 
-  // 3. Smart Language-Based Executive Routing
-  let assignedUserId = adminUserId;
-  let assignedProfileId: string | null = null;
+  // 3. Smart Executive Routing via Configured Lead Assignment Strategy
+  const detectedLang = detectLanguageFromLead({
+    location: `${district ? `${district}, ` : ""}${state}`,
+    language: isHindi ? "hi" : isTamil ? "ta" : undefined,
+  });
 
-  if (allProfiles.length > 0) {
-    if (isHindi) {
-      // Hindi team priority: Paval, RK Prasad, Karthick, MD Sir
-      const hindiMatched = allProfiles.find((p) => {
-        const n = (p.full_name || "").toLowerCase();
-        return n.includes("paval") || n.includes("prasad") || n.includes("rk") || n.includes("md");
-      });
-      if (hindiMatched) {
-        assignedUserId = hindiMatched.user_id;
-        assignedProfileId = hindiMatched.id;
-      }
-    } else {
-      // Tamil team priority: Nallakaman, Bala, Satheesh, Subash, Baskar, Karthick V
-      const tamilMatched = allProfiles.find((p) => {
-        const n = (p.full_name || "").toLowerCase();
-        return (
-          n.includes("nallakaman") ||
-          n.includes("bala") ||
-          n.includes("satheesh") ||
-          n.includes("subash") ||
-          n.includes("baskar") ||
-          n.includes("karthick v")
-        );
-      });
-      if (tamilMatched) {
-        assignedUserId = tamilMatched.user_id;
-        assignedProfileId = tamilMatched.id;
-      }
-    }
-  }
-
-  if (!assignedProfileId && assignedUserId) {
-    const p = allProfiles.find((pr) => pr.user_id === assignedUserId);
-    if (p) assignedProfileId = p.id;
-  }
+  const chosenExec = await getNextRoundRobinExecutiveAsync(undefined, detectedLang);
+  const assignedUserId = chosenExec.user_id || adminUserId;
+  const assignedProfileId =
+    chosenExec.profile_id ||
+    allProfiles.find((p) => p.user_id === assignedUserId)?.id ||
+    null;
 
   // 4. Contact Lookup or Create
   let contact = await findExistingContact(admin, accountId, formattedPhone);
@@ -480,18 +455,13 @@ async function processLeadEntry({
 
     // 9. Dispatch Dual Lead Alerts to MD Sir and Assigned Executive
     try {
-      const assignedExec =
-        findExecutiveByUserId(assignedUserId) ||
-        findExecutiveByProfileId(assignedProfileId) ||
-        getNextRoundRobinExecutive();
-
       await sendLeadAlerts({
         customerName: leadName || formattedPhone,
         customerPhone: formattedPhone,
         messageText: `Meta Ad Form (${language}): ${campaignName} - ${formName}`,
         requirement: `${businessType}${capacity ? ` (${capacity})` : ""}`,
         location: `${district ? `${district}, ` : ""}${state}`,
-        assignedExec,
+        assignedExec: chosenExec,
         accessToken: token,
         phoneNumberId: waPhoneId,
       });
