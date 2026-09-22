@@ -37,7 +37,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build:extension": "npx esbuild extension/src/content.ts --bundle --outfile=extension/dist/content.js && npx esbuild extension/src/background.ts --bundle --outfile=extension/dist/background.js"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
