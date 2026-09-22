@@ -15,6 +15,8 @@ import type {
   PipelineStageSlice,
   ResponseTimeBucket,
   ResponseTimeSummary,
+  ExecutiveLeadStat,
+  ExecutiveLeadStatsBundle,
 } from './types'
 
 // ------------------------------------------------------------
@@ -395,4 +397,116 @@ export async function loadActivity(db: DB, limit = 20): Promise<ActivityItem[]> 
   return items
     .sort((a, b) => (a.at > b.at ? -1 : a.at < b.at ? 1 : 0))
     .slice(0, limit)
+}
+
+// --- 6. Executive Lead Distribution Stats -----------------------------
+
+export async function loadExecutiveLeadStats(db: DB): Promise<ExecutiveLeadStatsBundle> {
+  const todayStart = startOfLocalDay().toISOString()
+
+  let executives: Array<{
+    id: string
+    name: string
+    tamilName?: string
+    phone: string
+    languages?: string[]
+    active: boolean
+    user_id?: string
+    profile_id?: string
+    role?: string
+    priority?: number
+  }> = []
+
+  try {
+    const { data: tagRow } = await db
+      .from('tags')
+      .select('color')
+      .eq('name', '__lead_routing_config__')
+      .maybeSingle()
+
+    if (tagRow?.color) {
+      const parsed = JSON.parse(tagRow.color)
+      if (parsed.executives && Array.isArray(parsed.executives)) {
+        executives = parsed.executives
+      }
+    }
+  } catch (err) {
+    console.error('[dashboard] Error loading routing config for stats:', err)
+  }
+
+  if (executives.length === 0) {
+    executives = [
+      { id: 'exec-karthick', name: 'KARTHICK', tamilName: 'கார்த்திக்', phone: '919994440905', active: true, languages: ['ta', 'hi', 'en'] },
+      { id: 'exec-bala', name: 'BALA', tamilName: 'பாலா', phone: '918925964469', active: true, languages: ['ta', 'kn', 'en'] },
+      { id: 'exec-satheesh', name: 'SATHEESH', tamilName: 'சதீஷ்', phone: '919786390479', active: true, languages: ['ta', 'en'] },
+      { id: 'exec-subash', name: 'SUBASH', tamilName: 'சுபாஷ்', phone: '919384225223', active: true, languages: ['ta', 'ml', 'en'] },
+      { id: 'exec-baskar', name: 'BASKAR', tamilName: 'பாஸ்கர்', phone: '918925964470', active: true, languages: ['ta', 'te', 'en'] },
+      { id: 'exec-nallakaman', name: 'NALLAKAMAN', tamilName: 'நல்லகாமன்', phone: '918925965837', active: true, languages: ['ta', 'hi', 'en'] },
+    ]
+  }
+
+  // Fetch deals and conversations
+  const [dealsRes, convsRes] = await Promise.all([
+    db.from('deals').select('id, user_id, assigned_to, status, created_at'),
+    db.from('conversations').select('id, assigned_agent_id, status, created_at'),
+  ])
+
+  const deals = dealsRes.data || []
+  const convs = convsRes.data || []
+
+  let totalAssigned = 0
+  let todayAssigned = 0
+
+  const statsList: ExecutiveLeadStat[] = executives.map((exec, idx) => {
+    const execDeals = deals.filter(
+      (d) =>
+        (exec.user_id && d.user_id === exec.user_id) ||
+        (exec.profile_id && d.assigned_to === exec.profile_id)
+    )
+
+    const execConvs = convs.filter(
+      (c) => exec.user_id && c.assigned_agent_id === exec.user_id
+    )
+
+    const totalLeads = Math.max(execDeals.length, execConvs.length)
+
+    const todayLeads =
+      execDeals.filter((d) => d.created_at >= todayStart).length ||
+      execConvs.filter((c) => c.created_at >= todayStart).length
+
+    const openLeads =
+      execDeals.filter((d) => d.status === 'open').length ||
+      execConvs.filter((c) => c.status === 'open').length
+
+    const wonLeads = execDeals.filter((d) => d.status === 'won').length
+
+    totalAssigned += totalLeads
+    todayAssigned += todayLeads
+
+    return {
+      id: exec.id || `exec-${idx}`,
+      name: exec.name,
+      tamilName: exec.tamilName,
+      phone: exec.phone,
+      languages: exec.languages || ['ta', 'en'],
+      active: exec.active !== false,
+      role: exec.role || 'Sales Executive',
+      totalLeads,
+      todayLeads,
+      openLeads,
+      wonLeads,
+      percentage: 0,
+    }
+  })
+
+  const statsWithPct = statsList.map((stat) => ({
+    ...stat,
+    percentage: totalAssigned > 0 ? Math.round((stat.totalLeads / totalAssigned) * 100) : 0,
+  }))
+
+  return {
+    executives: statsWithPct,
+    totalAssignedLeads: totalAssigned,
+    todayAssignedLeads: todayAssigned,
+  }
 }

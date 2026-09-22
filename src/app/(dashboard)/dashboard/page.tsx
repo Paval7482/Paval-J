@@ -17,6 +17,7 @@ import {
   loadMetrics,
   loadPipelineDonut,
   loadResponseTime,
+  loadExecutiveLeadStats,
 } from '@/lib/dashboard/queries'
 import type {
   ActivityItem,
@@ -24,6 +25,7 @@ import type {
   MetricsBundle,
   PipelineDonutData,
   ResponseTimeSummary,
+  ExecutiveLeadStatsBundle,
 } from '@/lib/dashboard/types'
 
 import { MetricCard } from '@/components/dashboard/metric-card'
@@ -33,6 +35,7 @@ import { ConversationsChart } from '@/components/dashboard/conversations-chart'
 import { PipelineDonut } from '@/components/dashboard/pipeline-donut'
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart'
 import { ActivityFeed } from '@/components/dashboard/activity-feed'
+import { ExecutiveLeadStats } from '@/components/dashboard/executive-lead-stats'
 
 import { useTranslations } from 'next-intl'
 
@@ -64,6 +67,9 @@ export default function DashboardPage() {
   const [activity, setActivity] = useState<ActivityItem[] | null>(null)
   const [activityLoading, setActivityLoading] = useState(true)
 
+  const [execStats, setExecStats] = useState<ExecutiveLeadStatsBundle | null>(null)
+  const [execStatsLoading, setExecStatsLoading] = useState(true)
+
   const loadAll = useCallback(() => {
     const db = createClient()
 
@@ -74,6 +80,11 @@ export default function DashboardPage() {
       .then((m) => setMetrics(m))
       .catch((err) => console.error('[dashboard] metrics failed:', err))
       .finally(() => setMetricsLoading(false))
+
+    void loadExecutiveLeadStats(db)
+      .then((es) => setExecStats(es))
+      .catch((err) => console.error('[dashboard] exec stats failed:', err))
+      .finally(() => setExecStatsLoading(false))
 
     void loadConversationsSeries(db, 30)
       .then((s) => setSeries((prev) => ({ ...prev, 30: s })))
@@ -190,6 +201,9 @@ export default function DashboardPage() {
 
       {/* Quick actions */}
       <QuickActions />
+
+      {/* Executive Lead Distribution & Breakdown */}
+      <ExecutiveLeadStats data={execStats} loading={execStatsLoading} />
 
       {/* Charts row */}
       {/* items-stretch (the grid default) stretches the two columns to
