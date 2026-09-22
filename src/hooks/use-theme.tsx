@@ -64,21 +64,12 @@ function readInitialTheme(): ThemeId {
 }
 
 function readInitialMode(): Mode {
-  if (typeof window === "undefined") return DEFAULT_MODE;
-  const fromAttr = document.documentElement.dataset.mode;
-  if (isMode(fromAttr)) return fromAttr;
-  try {
-    const stored = localStorage.getItem(MODE_STORAGE_KEY);
-    if (isMode(stored)) return stored;
-  } catch {
-    // localStorage can throw in private-browsing / sandboxed contexts.
-  }
-  return DEFAULT_MODE;
+  return "light";
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeId>(readInitialTheme);
-  const [mode, setModeState] = useState<Mode>(readInitialMode);
+  const [mode, setModeState] = useState<Mode>("light");
 
   const setTheme = useCallback((next: ThemeId) => {
     setThemeState(next);
@@ -94,20 +85,20 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setMode = useCallback((next: Mode) => {
-    setModeState(next);
+    setModeState("light");
     if (typeof document !== "undefined") {
-      document.documentElement.dataset.mode = next;
+      document.documentElement.dataset.mode = "light";
     }
     try {
-      localStorage.setItem(MODE_STORAGE_KEY, next);
+      localStorage.setItem(MODE_STORAGE_KEY, "light");
     } catch {
       // Same private-browsing edge case as above.
     }
   }, []);
 
   const toggleMode = useCallback(() => {
-    setMode(mode === "dark" ? "light" : "dark");
-  }, [mode, setMode]);
+    // Light mode locked
+  }, []);
 
   // Sync from other tabs — change theme or mode in tab A, tab B
   // catches up without a refresh.
