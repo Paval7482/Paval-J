@@ -149,6 +149,9 @@ export function LeadRoutingPanel() {
   // Admin numbers state
   const [adminName, setAdminName] = useState("");
   const [adminPhone, setAdminPhone] = useState("");
+  const [editingAdmin, setEditingAdmin] = useState<AdminRecipient | null>(null);
+  const [editAdminName, setEditAdminName] = useState("");
+  const [editAdminPhone, setEditAdminPhone] = useState("");
 
   const fetchConfig = async () => {
     setLoading(true);
@@ -1086,6 +1089,21 @@ export function LeadRoutingPanel() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {/* Edit Admin Button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10"
+                    onClick={() => {
+                      setEditingAdmin(admin);
+                      setEditAdminName(admin.name);
+                      setEditAdminPhone(admin.phone);
+                    }}
+                    title="Edit Management Alert Details & WhatsApp Number"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1510,6 +1528,89 @@ export function LeadRoutingPanel() {
             >
               <Check className="h-4 w-4" />
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOG 3: Edit Management Alert Number */}
+      <Dialog open={!!editingAdmin} onOpenChange={(open) => !open && setEditingAdmin(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Crown className="h-5 w-5 text-amber-500" />
+              Edit Management Alert Number (MD Sir)
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Update recipient name or WhatsApp mobile number for management alerts.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3.5 py-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Management Name / Role *</Label>
+              <Input
+                placeholder="e.g. MD Sir / Sales Director"
+                value={editAdminName}
+                onChange={(e) => setEditAdminName(e.target.value)}
+                className="text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5 p-3 rounded-lg border border-amber-500/20 bg-amber-500/5">
+              <Label className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                <Phone className="h-3.5 w-3.5" />
+                WhatsApp Mobile Number *
+              </Label>
+              <Input
+                value={editAdminPhone}
+                onChange={(e) => setEditAdminPhone(e.target.value)}
+                placeholder="e.g. 919994440905"
+                className="text-xs bg-background font-mono font-medium"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Real-time lead summary alerts will be sent directly to this WhatsApp number.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setEditingAdmin(null)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (!config || !editingAdmin) return;
+                if (!editAdminName.trim() || !editAdminPhone.trim()) {
+                  toast.error("Please enter both Name and WhatsApp Number");
+                  return;
+                }
+
+                const cleanPhone = editAdminPhone.replace(/\D/g, "");
+                if (cleanPhone.length < 10) {
+                  toast.error("Please enter a valid 10+ digit WhatsApp number");
+                  return;
+                }
+
+                const updatedAdmins = config.adminRecipients.map((a) =>
+                  a.id === editingAdmin.id
+                    ? {
+                        ...a,
+                        name: editAdminName.trim(),
+                        phone: cleanPhone.startsWith("91") ? cleanPhone : `91${cleanPhone}`,
+                      }
+                    : a
+                );
+
+                handleSaveConfig({ adminRecipients: updatedAdmins });
+                setEditingAdmin(null);
+              }}
+              disabled={saving}
+              className="gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              <Check className="h-4 w-4" />
+              Save Admin Details
             </Button>
           </DialogFooter>
         </DialogContent>
