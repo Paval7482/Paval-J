@@ -34,11 +34,11 @@ async function fetchRemoteConfig() {
 }
 
 // Handle messages from content script
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request: any, sender: any, sendResponse: (res?: any) => void) => {
   if (request.action === "SYNC_CUSTOMER_CHAT") {
     handleSyncRequest(request.payload)
-      .then((res) => sendResponse(res))
-      .catch((err) => sendResponse({ ok: false, error: err.message }));
+      .then((res: any) => sendResponse(res))
+      .catch((err: any) => sendResponse({ ok: false, error: err.message }));
     return true; // Keep message channel open for async response
   }
 

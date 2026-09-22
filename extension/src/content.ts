@@ -246,7 +246,7 @@ function triggerManualChatSync(customerPhone: string, customerName: string) {
         messages: messages.slice(-20), // Last 20 messages for POC
       },
     },
-    (res) => {
+    (res: any) => {
       if (syncBtn) {
         syncBtn.disabled = false;
         if (res?.ok) {

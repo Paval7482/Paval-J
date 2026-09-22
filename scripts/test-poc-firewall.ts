@@ -194,7 +194,7 @@ async function runPOCTestSuite() {
 
   const allPassed = results.every((r) => r.status === "PASS");
   if (allPassed) {
-    console.log("\n✅ ALL 8 POC SCENARIOS PASSED WITH ZERO POLICY VIOLATIONS & ZERO NETWORK LEAKS!");
+    console.log("\n✅ All 8 functional POC scenarios passed; Meta policy compliance is not established by these tests.");
   } else {
     console.error("\n❌ TEST SUITE FAILED SOME SCENARIOS.");
     process.exit(1);
