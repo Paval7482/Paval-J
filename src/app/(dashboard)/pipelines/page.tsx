@@ -180,7 +180,7 @@ export default function PipelinesPage() {
   const loadDeals = useCallback(
     async (pipelineId: string, stagesList?: PipelineStage[]) => {
       try {
-        const activeStages = stagesList && stagesList.length > 0 ? stagesList : stages;
+        const activeStages = stagesList && stagesList.length > 0 ? stagesList : [];
         const defaultStage = activeStages[0]?.id || "";
         const enquiryStage =
           activeStages.find((s) => s.name.toLowerCase().includes("enquiry"))?.id || defaultStage;
@@ -444,7 +444,7 @@ export default function PipelinesPage() {
         return [];
       }
     },
-    [supabase, accountId, stages, user],
+    [supabase, accountId, user],
   );
 
   const seedDefaultPipeline = useCallback(async (): Promise<Pipeline | null> => {
