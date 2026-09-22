@@ -98,13 +98,6 @@ function LoginPageInner() {
             Sri Lakshmi Industries
           </CardTitle>
 
-          {/* Hindi & Tamil Brand Names */}
-          <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs font-semibold text-primary mt-1">
-            <span>श्री लक्ष्मी इंडस्ट्रीज</span>
-            <span className="text-muted-foreground">•</span>
-            <span>ஸ்ரீ லக்ஷ்மி இண்டஸ்ட்ரீஸ்</span>
-          </div>
-
           {/* Patent Rights Tagline Badge */}
           <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 px-3 py-1 text-[11px] font-bold text-amber-500 dark:text-amber-400 shadow-xs">
             <Award className="h-3.5 w-3.5 shrink-0" />
