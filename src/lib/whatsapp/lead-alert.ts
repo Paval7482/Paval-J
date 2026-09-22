@@ -728,6 +728,7 @@ export async function sendLeadAlerts({
       const cleanAdminPhone = admin.phone.replace(/\D/g, "");
       try {
         // First try approved Meta Utility template (Delivers 24/7 without needing recipient to send 'HI')
+        let adminTmplDelivered = false;
         try {
           await sendTemplateMessage({
             phoneNumberId,
@@ -744,14 +745,43 @@ export async function sendLeadAlerts({
               String(sla || 5),
             ],
           });
+          adminTmplDelivered = true;
           console.info(
-            `[LeadAlert] Management summary delivered via approved Meta Template sli_sales_lead_alert to ${admin.name} (${cleanAdminPhone})`
+            `[LeadAlert] Management summary delivered via approved Meta Template sli_sales_lead_alert (en_US) to ${admin.name} (${cleanAdminPhone})`
           );
-        } catch (templateErr) {
+        } catch (templateErr1: any) {
           console.warn(
-            `[LeadAlert] Meta Template dispatch fallback to text message for ${admin.name}:`,
-            templateErr
+            `[LeadAlert] Meta Template (en_US) failed for admin ${admin.name}: ${templateErr1.message}, trying 'en'...`
           );
+          try {
+            await sendTemplateMessage({
+              phoneNumberId,
+              accessToken,
+              to: cleanAdminPhone,
+              templateName: "sli_sales_lead_alert",
+              language: "en",
+              params: [
+                customerName || "New Lead",
+                cleanCustomerPhone,
+                requirement || "Murukku Machine",
+                location || "Tamil Nadu",
+                nowStr,
+                String(sla || 5),
+              ],
+            });
+            adminTmplDelivered = true;
+            console.info(
+              `[LeadAlert] Management summary delivered via approved Meta Template sli_sales_lead_alert (en) to ${admin.name} (${cleanAdminPhone})`
+            );
+          } catch (templateErr2: any) {
+            console.warn(
+              `[LeadAlert] Meta Template dispatch fallback to text message for ${admin.name}:`,
+              templateErr2.message
+            );
+          }
+        }
+
+        if (!adminTmplDelivered) {
           await sendTextMessage({
             phoneNumberId,
             accessToken,
@@ -783,6 +813,7 @@ export async function sendLeadAlerts({
 
     try {
       // First try approved Meta Utility template (Delivers 24/7 without needing recipient to send 'HI')
+      let execTmplDelivered = false;
       try {
         await sendTemplateMessage({
           phoneNumberId,
@@ -799,14 +830,43 @@ export async function sendLeadAlerts({
             String(sla || 5),
           ],
         });
+        execTmplDelivered = true;
         console.info(
-          `[LeadAlert] Urgent lead alert delivered via approved Meta Template sli_sales_lead_alert to ${assignedExec.name} (${cleanExecPhone})`
+          `[LeadAlert] Urgent lead alert delivered via approved Meta Template sli_sales_lead_alert (en_US) to ${assignedExec.name} (${cleanExecPhone})`
         );
-      } catch (templateErr) {
+      } catch (templateErr1: any) {
         console.warn(
-          `[LeadAlert] Meta Template dispatch fallback to text message for ${assignedExec.name}:`,
-          templateErr
+          `[LeadAlert] Meta Template (en_US) failed for executive ${assignedExec.name}: ${templateErr1.message}, trying 'en'...`
         );
+        try {
+          await sendTemplateMessage({
+            phoneNumberId,
+            accessToken,
+            to: cleanExecPhone,
+            templateName: "sli_sales_lead_alert",
+            language: "en",
+            params: [
+              customerName || "New Lead",
+              cleanCustomerPhone,
+              requirement || "Murukku Machine",
+              location || "Tamil Nadu",
+              nowStr,
+              String(sla || 5),
+            ],
+          });
+          execTmplDelivered = true;
+          console.info(
+            `[LeadAlert] Urgent lead alert delivered via approved Meta Template sli_sales_lead_alert (en) to ${assignedExec.name} (${cleanExecPhone})`
+          );
+        } catch (templateErr2: any) {
+          console.warn(
+            `[LeadAlert] Meta Template dispatch fallback to text message for ${assignedExec.name}:`,
+            templateErr2.message
+          );
+        }
+      }
+
+      if (!execTmplDelivered) {
         await sendTextMessage({
           phoneNumberId,
           accessToken,

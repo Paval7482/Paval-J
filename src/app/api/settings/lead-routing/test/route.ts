@@ -296,13 +296,11 @@ export async function POST(req: Request) {
         `📍 *Location / இடம்:* ${testLead.location}\n` +
         `💬 *Message / தகவல்:* "${testLead.messageText}"\n` +
         `⏰ *Time:* ${nowStr}\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `⚡ *TEST VERIFICATION:* This is a test lead alert sent from CRM Lead Flow settings.\n` +
-        `👉 *WhatsApp:* https://wa.me/${testLead.customerPhone}\n` +
-        `📞 *Call:* tel:+${testLead.customerPhone}\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `- *Sri Lakshmi Industries CRM Flow*`;
+        `━━━━━━━━━━━━━━━━━━━━━━\n`;
+      let sentVia = "template";
+      let errorDetails = "";
 
+      // 1. Try Meta Template en_US
       try {
         await sendTemplateMessage({
           phoneNumberId: wabaConfig.phone_number_id,
@@ -319,18 +317,52 @@ export async function POST(req: Request) {
             String(config.slaMinutes || 5),
           ],
         });
-      } catch {
-        await sendTextMessage({
-          phoneNumberId: wabaConfig.phone_number_id,
-          accessToken,
-          to: cleanPhone,
-          text: execMsg,
-        });
+        sentVia = "Approved Meta Utility Template (24/7 Delivery)";
+      } catch (tmplErr1: any) {
+        console.warn(`[Ping] en_US template failed for ${cleanPhone}:`, tmplErr1.message);
+        // 2. Try Meta Template en
+        try {
+          await sendTemplateMessage({
+            phoneNumberId: wabaConfig.phone_number_id,
+            accessToken,
+            to: cleanPhone,
+            templateName: "sli_sales_lead_alert",
+            language: "en",
+            params: [
+              testLead.customerName,
+              testLead.customerPhone,
+              testLead.requirement,
+              testLead.location,
+              nowStr,
+              String(config.slaMinutes || 5),
+            ],
+          });
+          sentVia = "Approved Meta Utility Template (en)";
+        } catch (tmplErr2: any) {
+          console.warn(`[Ping] en template failed for ${cleanPhone}:`, tmplErr2.message);
+          errorDetails = tmplErr2.message || tmplErr1.message;
+          // 3. Fallback to freeform text message
+          try {
+            await sendTextMessage({
+              phoneNumberId: wabaConfig.phone_number_id,
+              accessToken,
+              to: cleanPhone,
+              text: execMsg,
+            });
+            sentVia = "Direct Text Message (Inside 24h Window)";
+          } catch (textErr: any) {
+            console.error(`[Ping] All dispatch methods failed for ${cleanPhone}:`, textErr.message);
+            return NextResponse.json({
+              ok: false,
+              error: `WhatsApp Delivery Failed to +${cleanPhone}: ${textErr.message} (Template error: ${errorDetails})`,
+            }, { status: 400 });
+          }
+        }
       }
 
       return NextResponse.json({
         ok: true,
-        message: `Test alert sent successfully to Executive ${exec.name} (+${cleanPhone})!`,
+        message: `Test alert sent successfully to Executive ${exec.name} (+${cleanPhone}) via ${sentVia}!`,
       });
     }
 
