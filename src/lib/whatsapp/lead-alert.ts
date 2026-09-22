@@ -20,6 +20,12 @@ export const SUPPORTED_LANGUAGES: LanguageOption[] = [
   { code: "te", label: "Telugu", native: "తెలుగు", flag: "🇮🇳" },
 ];
 
+export type LeadAssignmentMethod =
+  | "round_robin"
+  | "priority_sequence"
+  | "language_match"
+  | "workload_balanced";
+
 export interface SalesExecutive {
   id: string;
   name: string;
@@ -30,6 +36,7 @@ export interface SalesExecutive {
   active: boolean;
   role?: string;
   languages?: SupportedLanguage[];
+  priority?: number;
 }
 
 export interface AdminRecipient {
@@ -77,7 +84,7 @@ Our sales executive will call you directly in a few minutes! / எங்கள�
 
 export interface LeadRoutingConfig {
   enabled: boolean;
-  assignmentMethod: "round_robin" | "direct" | "language_match";
+  assignmentMethod: LeadAssignmentMethod;
   welcomeGreetingMode?: "all_in_one" | "language_specific";
   notifyAdmin: boolean;
   notifyExecutive: boolean;
@@ -222,37 +229,16 @@ export function renderLeadTemplate(
 
 export const DEFAULT_SALES_EXECUTIVES: SalesExecutive[] = [
   {
-    id: "exec-satheesh",
-    name: "SATHEESH",
-    tamilName: "சதீஷ்",
-    phone: "919786390479",
-    profile_id: "fac4a28c-d56f-4f22-979c-b288cbdddaae",
-    user_id: "a09eac1f-b95b-4a8c-8c4f-cc5822b32ea1",
+    id: "exec-karthick",
+    name: "KARTHICK",
+    tamilName: "கார்த்திக்",
+    phone: "919994440905",
+    profile_id: "85f11697-ecc9-4447-ab69-8296421f144a",
+    user_id: "944ed513-3b24-4daf-a159-66b37b63a967",
     active: true,
     role: "Sales Executive",
-    languages: ["ta", "en"],
-  },
-  {
-    id: "exec-subash",
-    name: "SUBASH",
-    tamilName: "சுபாஷ்",
-    phone: "919384225223",
-    profile_id: "7467ba31-21e8-4983-b475-c7a273486411",
-    user_id: "b8db6f80-377c-41b9-bc79-458ed7733230",
-    active: true,
-    role: "Sales Executive",
-    languages: ["ta", "ml", "en"],
-  },
-  {
-    id: "exec-baskar",
-    name: "BASKAR",
-    tamilName: "பாஸ்கர்",
-    phone: "918925964470",
-    profile_id: "8b6f940b-e148-4261-a300-af35e8426bf2",
-    user_id: "a909751b-7022-4e47-aaed-c7cfc5acd526",
-    active: true,
-    role: "Sales Executive",
-    languages: ["ta", "te", "en"],
+    languages: ["ta", "hi", "en"],
+    priority: 1,
   },
   {
     id: "exec-bala",
@@ -264,6 +250,43 @@ export const DEFAULT_SALES_EXECUTIVES: SalesExecutive[] = [
     active: true,
     role: "Sales Executive",
     languages: ["ta", "kn", "en"],
+    priority: 2,
+  },
+  {
+    id: "exec-satheesh",
+    name: "SATHEESH",
+    tamilName: "சதீஷ்",
+    phone: "919786390479",
+    profile_id: "fac4a28c-d56f-4f22-979c-b288cbdddaae",
+    user_id: "a09eac1f-b95b-4a8c-8c4f-cc5822b32ea1",
+    active: true,
+    role: "Sales Executive",
+    languages: ["ta", "en"],
+    priority: 3,
+  },
+  {
+    id: "exec-subash",
+    name: "SUBASH",
+    tamilName: "சுபாஷ்",
+    phone: "919384225223",
+    profile_id: "7467ba31-21e8-4983-b475-c7a273486411",
+    user_id: "b8db6f80-377c-41b9-bc79-458ed7733230",
+    active: true,
+    role: "Sales Executive",
+    languages: ["ta", "ml", "en"],
+    priority: 4,
+  },
+  {
+    id: "exec-baskar",
+    name: "BASKAR",
+    tamilName: "பாஸ்கர்",
+    phone: "918925964470",
+    profile_id: "8b6f940b-e148-4261-a300-af35e8426bf2",
+    user_id: "a909751b-7022-4e47-aaed-c7cfc5acd526",
+    active: true,
+    role: "Sales Executive",
+    languages: ["ta", "te", "en"],
+    priority: 5,
   },
   {
     id: "exec-nallakaman",
@@ -275,17 +298,7 @@ export const DEFAULT_SALES_EXECUTIVES: SalesExecutive[] = [
     active: true,
     role: "Sales Executive",
     languages: ["ta", "hi", "en"],
-  },
-  {
-    id: "exec-karthick",
-    name: "KARTHICK",
-    tamilName: "கார்த்திக்",
-    phone: "919994440905",
-    profile_id: "85f11697-ecc9-4447-ab69-8296421f144a",
-    user_id: "944ed513-3b24-4daf-a159-66b37b63a967",
-    active: true,
-    role: "Sales Executive",
-    languages: ["ta", "hi", "en"],
+    priority: 6,
   },
 ];
 
@@ -470,20 +483,41 @@ export function detectLanguageFromLead({
   return "ta";
 }
 
-export function getNextRoundRobinExecutive(indexSeed?: number, targetLanguage?: SupportedLanguage): SalesExecutive {
+export function getNextRoundRobinExecutive(
+  indexSeed?: number,
+  targetLanguage?: SupportedLanguage
+): SalesExecutive {
   const config = cachedConfig || DEFAULT_ROUTING_CONFIG;
-  const activeExecs = config.executives.filter((e) => e.active !== false);
+  const activeExecs = (config.executives && config.executives.length > 0 ? config.executives : DEFAULT_SALES_EXECUTIVES).filter(
+    (e) => e.active !== false
+  );
 
-  // If language provided, try to filter by matching language
+  if (activeExecs.length === 0) return DEFAULT_SALES_EXECUTIVES[0];
+
+  const method = config.assignmentMethod || "round_robin";
   let pool = activeExecs;
-  if (targetLanguage) {
+
+  // 1. Custom Priority Sequence Order (1st, 2nd, 3rd Lead Sequence)
+  if (method === "priority_sequence") {
+    // Strictly sort by custom sequence priority rank 1, 2, 3...
+    pool = [...activeExecs].sort((a, b) => (a.priority || 999) - (b.priority || 999));
+  }
+  // 2. Language Wise Match
+  else if (method === "language_match" && targetLanguage) {
+    const matching = activeExecs.filter((e) => e.languages && e.languages.includes(targetLanguage));
+    if (matching.length > 0) {
+      pool = matching;
+    }
+  }
+  // 3. Round Robin / Default with optional language matching fallback
+  else if (targetLanguage) {
     const matching = activeExecs.filter((e) => e.languages && e.languages.includes(targetLanguage));
     if (matching.length > 0) {
       pool = matching;
     }
   }
 
-  if (pool.length === 0) pool = DEFAULT_SALES_EXECUTIVES;
+  if (pool.length === 0) pool = activeExecs;
 
   let idx = 0;
   if (typeof indexSeed === "number" && !isNaN(indexSeed)) {
@@ -495,7 +529,7 @@ export function getNextRoundRobinExecutive(indexSeed?: number, targetLanguage?: 
     saveLeadRoutingConfig({ lastAssignedIndex: idx }).catch(() => {});
   }
 
-  return pool[idx];
+  return pool[idx] || activeExecs[0] || DEFAULT_SALES_EXECUTIVES[0];
 }
 
 export async function getNextRoundRobinExecutiveAsync(
@@ -503,17 +537,35 @@ export async function getNextRoundRobinExecutiveAsync(
   targetLanguage?: SupportedLanguage
 ): Promise<SalesExecutive> {
   const config = await getLeadRoutingConfig();
-  const activeExecs = config.executives.filter((e) => e.active !== false);
+  const activeExecs = (config.executives && config.executives.length > 0 ? config.executives : DEFAULT_SALES_EXECUTIVES).filter(
+    (e) => e.active !== false
+  );
 
+  if (activeExecs.length === 0) return DEFAULT_SALES_EXECUTIVES[0];
+
+  const method = config.assignmentMethod || "round_robin";
   let pool = activeExecs;
-  if (targetLanguage) {
+
+  // 1. Custom Priority Sequence Order
+  if (method === "priority_sequence") {
+    pool = [...activeExecs].sort((a, b) => (a.priority || 999) - (b.priority || 999));
+  }
+  // 2. Language Wise Match
+  else if (method === "language_match" && targetLanguage) {
+    const matching = activeExecs.filter((e) => e.languages && e.languages.includes(targetLanguage));
+    if (matching.length > 0) {
+      pool = matching;
+    }
+  }
+  // 3. Round Robin / Default with optional language matching fallback
+  else if (targetLanguage) {
     const matching = activeExecs.filter((e) => e.languages && e.languages.includes(targetLanguage));
     if (matching.length > 0) {
       pool = matching;
     }
   }
 
-  if (pool.length === 0) pool = DEFAULT_SALES_EXECUTIVES;
+  if (pool.length === 0) pool = activeExecs;
 
   let idx = 0;
   if (typeof indexSeed === "number" && !isNaN(indexSeed)) {
@@ -523,7 +575,7 @@ export async function getNextRoundRobinExecutiveAsync(
     await saveLeadRoutingConfig({ lastAssignedIndex: idx });
   }
 
-  return pool[idx];
+  return pool[idx] || activeExecs[0] || DEFAULT_SALES_EXECUTIVES[0];
 }
 
 export function findExecutiveByUserId(userId?: string | null): SalesExecutive | null {

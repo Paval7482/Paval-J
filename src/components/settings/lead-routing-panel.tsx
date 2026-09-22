@@ -21,6 +21,12 @@ import {
   FileText,
   Smartphone,
   Copy,
+  ArrowUp,
+  ArrowDown,
+  ListOrdered,
+  Globe,
+  Scale,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -138,6 +144,7 @@ export function LeadRoutingPanel() {
   const [execUserId, setExecUserId] = useState<string>("");
   const [execProfileId, setExecProfileId] = useState<string>("");
   const [execLanguages, setExecLanguages] = useState<SupportedLanguage[]>(["ta", "en"]);
+  const [execPriority, setExecPriority] = useState<number>(1);
 
   // Edit Executive Dialog State
   const [editingExec, setEditingExec] = useState<SalesExecutive | null>(null);
@@ -145,6 +152,7 @@ export function LeadRoutingPanel() {
   const [editTamilName, setEditTamilName] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editLanguages, setEditLanguages] = useState<SupportedLanguage[]>(["ta", "en"]);
+  const [editPriority, setEditPriority] = useState<number>(1);
 
   // Admin numbers state
   const [adminName, setAdminName] = useState("");
@@ -447,6 +455,44 @@ export function LeadRoutingPanel() {
     }
     const updatedAdmins = config.adminRecipients.filter((a) => a.id !== adminId);
     handleSaveConfig({ adminRecipients: updatedAdmins });
+  };
+
+  const handleMoveExecutive = (execId: string, direction: "up" | "down") => {
+    if (!config) return;
+    const list = [...config.executives];
+    const idx = list.findIndex((e) => e.id === execId);
+    if (idx === -1) return;
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= list.length) return;
+
+    const temp = list[idx];
+    list[idx] = list[targetIdx];
+    list[targetIdx] = temp;
+
+    const updated = list.map((item, index) => ({
+      ...item,
+      priority: index + 1,
+    }));
+
+    handleSaveConfig({ executives: updated });
+    toast.success(`Priority updated! ${temp.name} moved ${direction}.`);
+  };
+
+  const handleSetExecutivePriority = (execId: string, newPriority: number) => {
+    if (!config) return;
+    const list = [...config.executives];
+    const target = list.find((e) => e.id === execId);
+    if (!target) return;
+
+    target.priority = newPriority;
+    list.sort((a, b) => (a.priority || 999) - (b.priority || 999));
+    const updated = list.map((item, index) => ({
+      ...item,
+      priority: index + 1,
+    }));
+
+    handleSaveConfig({ executives: updated });
+    toast.success(`Priority set to #${newPriority} for ${target.name}`);
   };
 
   const handleSendTest = async (
@@ -874,6 +920,186 @@ export function LeadRoutingPanel() {
         </CardContent>
       </Card>
 
+      {/* SECTION: Lead Assignment Distribution Strategy Selector */}
+      <Card className="border-primary/30 shadow-sm bg-gradient-to-b from-card to-muted/20">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <Workflow className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base font-semibold">
+                  Lead Assignment & Distribution Strategy
+                </CardTitle>
+                <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
+                  Selectable Logic
+                </Badge>
+              </div>
+              <CardDescription className="text-xs mt-0.5">
+                Choose how incoming WhatsApp and Meta leads are assigned to your active sales executives.
+              </CardDescription>
+            </div>
+
+            {/* Current Active Strategy Badge */}
+            <Badge className="bg-primary text-primary-foreground font-semibold px-3 py-1 text-xs self-start sm:self-auto">
+              {config.assignmentMethod === "priority_sequence"
+                ? "🔢 Custom Priority Sequence Active"
+                : config.assignmentMethod === "language_match"
+                ? "🌐 Language-Wise Routing Active"
+                : config.assignmentMethod === "workload_balanced"
+                ? "⚖️ Workload Balanced Active"
+                : "🔄 Standard Round Robin Active"}
+            </Badge>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* OPTION 1: Round Robin */}
+            <div
+              onClick={() => handleSaveConfig({ assignmentMethod: "round_robin" })}
+              className={`cursor-pointer rounded-xl border p-3.5 transition-all flex flex-col justify-between ${
+                config.assignmentMethod === "round_robin" || !config.assignmentMethod
+                  ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs"
+                  : "border-border bg-card hover:border-border hover:bg-muted/40"
+              }`}
+            >
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs flex items-center gap-1.5 text-foreground">
+                    <RotateCcw className="h-4 w-4 text-primary" />
+                    1. Round Robin
+                  </span>
+                  {(config.assignmentMethod === "round_robin" || !config.assignmentMethod) && (
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Equal rotation across all active executives turn-by-turn.
+                </p>
+              </div>
+              <Badge variant="secondary" className="mt-3 w-fit text-[10px] font-normal">
+                Equal Turn-by-Turn
+              </Badge>
+            </div>
+
+            {/* OPTION 2: Priority Sequence (1st, 2nd, 3rd) */}
+            <div
+              onClick={() => handleSaveConfig({ assignmentMethod: "priority_sequence" })}
+              className={`cursor-pointer rounded-xl border p-3.5 transition-all flex flex-col justify-between ${
+                config.assignmentMethod === "priority_sequence"
+                  ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs"
+                  : "border-border bg-card hover:border-border hover:bg-muted/40"
+              }`}
+            >
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs flex items-center gap-1.5 text-foreground">
+                    <ListOrdered className="h-4 w-4 text-primary" />
+                    2. Priority Sequence
+                  </span>
+                  {config.assignmentMethod === "priority_sequence" && (
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Strict 1st Lead ➔ 2nd Lead ➔ 3rd Lead order configured below, irrespective of language.
+                </p>
+              </div>
+              <Badge variant="secondary" className="mt-3 w-fit text-[10px] font-normal">
+                1st ➔ 2nd ➔ 3rd Order
+              </Badge>
+            </div>
+
+            {/* OPTION 3: Language-Wise Routing */}
+            <div
+              onClick={() => handleSaveConfig({ assignmentMethod: "language_match" })}
+              className={`cursor-pointer rounded-xl border p-3.5 transition-all flex flex-col justify-between ${
+                config.assignmentMethod === "language_match"
+                  ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs"
+                  : "border-border bg-card hover:border-border hover:bg-muted/40"
+              }`}
+            >
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs flex items-center gap-1.5 text-foreground">
+                    <Globe className="h-4 w-4 text-primary" />
+                    3. Language Wise
+                  </span>
+                  {config.assignmentMethod === "language_match" && (
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Directly routes to Tamil, Telugu, Hindi, Malayalam, or Kannada specialist executive.
+                </p>
+              </div>
+              <Badge variant="secondary" className="mt-3 w-fit text-[10px] font-normal">
+                Native Language Match
+              </Badge>
+            </div>
+
+            {/* OPTION 4: Workload Balanced */}
+            <div
+              onClick={() => handleSaveConfig({ assignmentMethod: "workload_balanced" })}
+              className={`cursor-pointer rounded-xl border p-3.5 transition-all flex flex-col justify-between ${
+                config.assignmentMethod === "workload_balanced"
+                  ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs"
+                  : "border-border bg-card hover:border-border hover:bg-muted/40"
+              }`}
+            >
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs flex items-center gap-1.5 text-foreground">
+                    <Scale className="h-4 w-4 text-primary" />
+                    4. Workload Balanced
+                  </span>
+                  {config.assignmentMethod === "workload_balanced" && (
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Distributes leads dynamically to balance team load equally.
+                </p>
+              </div>
+              <Badge variant="secondary" className="mt-3 w-fit text-[10px] font-normal">
+                Least Busy First
+              </Badge>
+            </div>
+          </div>
+
+          {/* Live Next Lead Target Banner */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <span className="font-semibold text-emerald-800 dark:text-emerald-300">
+                🎯 Next Incoming Lead Target:
+              </span>
+              <span className="font-bold text-foreground bg-background/80 px-2 py-0.5 rounded border border-border">
+                {(() => {
+                  const activeList = config.assignmentMethod === "priority_sequence"
+                    ? [...config.executives].sort((a, b) => (a.priority || 999) - (b.priority || 999)).filter(e => e.active !== false)
+                    : config.executives.filter(e => e.active !== false);
+                  if (activeList.length === 0) return "No Active Executives";
+                  const nextIdx = (config.lastAssignedIndex + 1) % activeList.length;
+                  const target = activeList[nextIdx] || activeList[0];
+                  return `${target.name} (+${target.phone})`;
+                })()}
+              </span>
+            </div>
+            <span className="text-[11px] text-muted-foreground">
+              {config.assignmentMethod === "priority_sequence"
+                ? "Following custom 1st ➔ 2nd ➔ 3rd priority sequence"
+                : config.assignmentMethod === "language_match"
+                ? "Matching customer's preferred language"
+                : "Rotating through active executives roster"}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Section 1: Sales Executives Pool (Round-Robin Roster) */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -881,14 +1107,14 @@ export function LeadRoutingPanel() {
             <div className="flex items-center gap-2">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <UsersRound className="h-5 w-5 text-primary" />
-                Sales Executives Pool (Round-Robin Roster)
+                Sales Executives Pool & Priority Sequence
               </CardTitle>
               <Badge variant="secondary" className="text-xs">
                 {activeExecsCount} Active / {config.executives.length} Total
               </Badge>
             </div>
             <CardDescription className="text-xs mt-0.5">
-              Leads are rotated sequentially through active executives. Click <b>Edit</b> to update their WhatsApp number or toggle <b>Active / On Leave</b> to skip them automatically.
+              Re-order using <b>[ ⬆️ ] [ ⬇️ ]</b> buttons or rank dropdown to set 1st Lead, 2nd Lead, 3rd Lead order.
             </CardDescription>
           </div>
 
@@ -900,135 +1126,207 @@ export function LeadRoutingPanel() {
 
         <CardContent className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {config.executives.map((exec) => (
-              <div
-                key={exec.id}
-                className={`relative flex items-center justify-between p-3.5 rounded-lg border transition-all ${
-                  exec.active
-                    ? "border-border bg-card hover:border-primary/40 shadow-xs"
-                    : "border-border/50 bg-muted/40 opacity-70"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
-                      exec.active
-                        ? "bg-primary/10 text-primary border border-primary/20"
-                        : "bg-muted text-muted-foreground border border-border"
-                    }`}
-                  >
-                    {exec.name.charAt(0)}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm text-foreground">{exec.name}</span>
-                      {exec.tamilName && (
-                        <span className="text-xs text-muted-foreground font-medium">({exec.tamilName})</span>
-                      )}
-                      {exec.active ? (
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/20 py-0 px-1.5 h-4"
-                        >
-                          Active
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/20 py-0 px-1.5 h-4"
-                        >
-                          On Leave
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                      <a
-                        href={`https://wa.me/${exec.phone}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1 hover:text-emerald-600 transition-colors font-medium text-foreground/80"
-                        title="Click to open WhatsApp chat"
+            {config.executives.map((exec, idx) => {
+              const priorityNum = exec.priority || idx + 1;
+              const activeList = config.assignmentMethod === "priority_sequence"
+                ? [...config.executives].sort((a, b) => (a.priority || 999) - (b.priority || 999)).filter((e) => e.active !== false)
+                : config.executives.filter((e) => e.active !== false);
+              const nextIdx = (config.lastAssignedIndex + 1) % (activeList.length || 1);
+              const isNextTarget = activeList[nextIdx]?.id === exec.id;
+
+              return (
+                <div
+                  key={exec.id}
+                  className={`relative flex items-center justify-between p-3.5 rounded-lg border transition-all ${
+                    isNextTarget && exec.active
+                      ? "border-emerald-500/60 bg-emerald-500/5 ring-1 ring-emerald-500/30 shadow-xs"
+                      : exec.active
+                      ? "border-border bg-card hover:border-primary/40 shadow-xs"
+                      : "border-border/50 bg-muted/40 opacity-70"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    {/* Priority Sequence Rank & Up/Down Controls */}
+                    <div className="flex flex-col items-center gap-0.5">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
+                        disabled={idx === 0}
+                        onClick={() => handleMoveExecutive(exec.id, "up")}
+                        title="Move Up in Priority (Earlier Lead)"
                       >
-                        <Phone className="h-3 w-3 text-emerald-500" />
-                        +{exec.phone}
-                      </a>
-                      <span className="text-border">•</span>
-                      <span>{exec.role || "Sales Executive"}</span>
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      </Button>
+
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] font-mono font-bold px-1.5 py-0.5 h-5 flex items-center justify-center ${
+                          priorityNum === 1
+                            ? "bg-amber-500/10 text-amber-700 border-amber-500/30"
+                            : priorityNum === 2
+                            ? "bg-blue-500/10 text-blue-700 border-blue-500/30"
+                            : "bg-muted text-foreground border-border"
+                        }`}
+                        title={`Assigned Lead #${priorityNum} in Sequence`}
+                      >
+                        #{priorityNum}
+                      </Badge>
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
+                        disabled={idx === config.executives.length - 1}
+                        onClick={() => handleMoveExecutive(exec.id, "down")}
+                        title="Move Down in Priority (Later Lead)"
+                      >
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
 
-                    {/* Language Badges */}
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {(exec.languages && exec.languages.length > 0 ? exec.languages : (["ta", "en"] as SupportedLanguage[])).map((langCode) => {
-                        const lObj = SUPPORTED_LANGUAGES.find((l) => l.code === langCode);
-                        return (
-                          <span
-                            key={langCode}
-                            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 font-medium"
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
+                        exec.active
+                          ? "bg-primary/10 text-primary border border-primary/20"
+                          : "bg-muted text-muted-foreground border border-border"
+                      }`}
+                    >
+                      {exec.name.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-sm text-foreground">{exec.name}</span>
+                        {exec.tamilName && (
+                          <span className="text-xs text-muted-foreground font-medium">({exec.tamilName})</span>
+                        )}
+                        {isNextTarget && exec.active && (
+                          <Badge className="text-[10px] bg-emerald-600 text-white py-0 px-1.5 h-4 font-semibold">
+                            🎯 Next Target
+                          </Badge>
+                        )}
+                        {exec.active ? (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/20 py-0 px-1.5 h-4"
                           >
-                            <span>{lObj?.flag}</span>
-                            <span>{lObj?.native || langCode}</span>
-                          </span>
-                        );
-                      })}
+                            Active
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/20 py-0 px-1.5 h-4"
+                          >
+                            On Leave
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                        <a
+                          href={`https://wa.me/${exec.phone}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1 hover:text-emerald-600 transition-colors font-medium text-foreground/80"
+                          title="Click to open WhatsApp chat"
+                        >
+                          <Phone className="h-3 w-3 text-emerald-500" />
+                          +{exec.phone}
+                        </a>
+                        <span className="text-border">•</span>
+                        <span className="text-[11px] font-medium text-primary">
+                          {priorityNum === 1 ? "1st Lead" : priorityNum === 2 ? "2nd Lead" : priorityNum === 3 ? "3rd Lead" : `${priorityNum}th Lead`}
+                        </span>
+                      </div>
+
+                      {/* Language Badges */}
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {(exec.languages && exec.languages.length > 0 ? exec.languages : (["ta", "en"] as SupportedLanguage[])).map((langCode) => {
+                          const lObj = SUPPORTED_LANGUAGES.find((l) => l.code === langCode);
+                          return (
+                            <span
+                              key={langCode}
+                              className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 font-medium"
+                            >
+                              <span>{lObj?.flag}</span>
+                              <span>{lObj?.native || langCode}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
+
+                  <div className="flex items-center gap-1.5">
+                    {/* Quick Priority Select Dropdown */}
+                    <select
+                      value={String(priorityNum)}
+                      onChange={(e) => handleSetExecutivePriority(exec.id, parseInt(e.target.value))}
+                      className="text-xs rounded-md border border-border bg-background px-2 py-1 text-foreground shadow-2xs font-medium cursor-pointer"
+                      title="Set Priority Rank Position"
+                    >
+                      {config.executives.map((_, pIdx) => (
+                        <option key={pIdx + 1} value={pIdx + 1}>
+                          #{pIdx + 1} {pIdx === 0 ? "(1st)" : pIdx === 1 ? "(2nd)" : pIdx === 2 ? "(3rd)" : `(${pIdx + 1}th)`}
+                        </option>
+                      ))}
+                    </select>
+
+                    {/* Edit Executive Button */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                      onClick={() => {
+                        setEditingExec(exec);
+                        setEditName(exec.name);
+                        setEditTamilName(exec.tamilName || "");
+                        setEditPhone(exec.phone);
+                        setEditLanguages(exec.languages || ["ta", "en"]);
+                        setEditPriority(exec.priority || idx + 1);
+                      }}
+                      title="Edit WhatsApp Number & Details"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+
+                    {/* Ping WhatsApp Button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-xs hover:bg-primary/10 text-primary"
+                      disabled={testingId === exec.id}
+                      onClick={() => handleSendTest("executive", exec.id)}
+                      title="Send Test Lead Alert via WhatsApp"
+                    >
+                      {testingId === exec.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Send className="h-3.5 w-3.5 mr-1" />
+                      )}
+                      Ping
+                    </Button>
+
+                    {/* Active / On-Leave Toggle */}
+                    <Switch
+                      checked={exec.active}
+                      onCheckedChange={() => handleToggleExecActive(exec.id, exec.active)}
+                      title={exec.active ? "Set On Leave (Skip in Round-Robin)" : "Set Active"}
+                    />
+
+                    {/* Delete Button */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => handleRemoveExec(exec.id)}
+                      title="Remove from roster"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
-
-                <div className="flex items-center gap-1.5">
-                  {/* Edit Executive Button */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
-                    onClick={() => {
-                      setEditingExec(exec);
-                      setEditName(exec.name);
-                      setEditTamilName(exec.tamilName || "");
-                      setEditPhone(exec.phone);
-                      setEditLanguages(exec.languages || ["ta", "en"]);
-                    }}
-                    title="Edit WhatsApp Number & Details"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-
-                  {/* Ping WhatsApp Button */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 px-2 text-xs hover:bg-primary/10 text-primary"
-                    disabled={testingId === exec.id}
-                    onClick={() => handleSendTest("executive", exec.id)}
-                    title="Send Test Lead Alert via WhatsApp"
-                  >
-                    {testingId === exec.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Send className="h-3.5 w-3.5 mr-1" />
-                    )}
-                    Ping
-                  </Button>
-
-                  {/* Active / On-Leave Toggle */}
-                  <Switch
-                    checked={exec.active}
-                    onCheckedChange={() => handleToggleExecActive(exec.id, exec.active)}
-                    title={exec.active ? "Set On Leave (Skip in Round-Robin)" : "Set Active"}
-                  />
-
-                  {/* Delete Button */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => handleRemoveExec(exec.id)}
-                    title="Remove from roster"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -1291,6 +1589,18 @@ export function LeadRoutingPanel() {
               />
             </div>
 
+            {/* Priority Sequence Rank */}
+            <div className="space-y-1">
+              <Label className="text-xs">Priority Sequence Rank (1st, 2nd, 3rd...)</Label>
+              <Input
+                type="number"
+                min={1}
+                value={execPriority}
+                onChange={(e) => setExecPriority(parseInt(e.target.value) || 1)}
+                className="text-xs font-mono"
+              />
+            </div>
+
             {/* 4. Language Categories Handled */}
             <div className="space-y-1.5 p-3 rounded-lg border border-primary/20 bg-primary/5">
               <Label className="text-xs font-semibold text-foreground flex items-center justify-between">
@@ -1378,6 +1688,7 @@ export function LeadRoutingPanel() {
                   active: true,
                   role: "Sales Executive",
                   languages: execLanguages,
+                  priority: execPriority || config.executives.length + 1,
                 };
 
                 const updatedExecs = [...config.executives, newExec];
@@ -1390,6 +1701,7 @@ export function LeadRoutingPanel() {
                 setExecUserId("");
                 setExecProfileId("");
                 setExecLanguages(["ta", "en"]);
+                setExecPriority(updatedExecs.length + 1);
                 setShowAddExec(false);
               }}
               disabled={saving}
@@ -1411,7 +1723,7 @@ export function LeadRoutingPanel() {
               Edit Executive Details & Languages
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Update name, languages handled, or WhatsApp alert forwarding number for <b>{editingExec?.name}</b>.
+              Update name, languages handled, priority sequence, or WhatsApp number for <b>{editingExec?.name}</b>.
             </DialogDescription>
           </DialogHeader>
 
@@ -1432,6 +1744,18 @@ export function LeadRoutingPanel() {
                 value={editTamilName}
                 onChange={(e) => setEditTamilName(e.target.value)}
                 className="text-xs"
+              />
+            </div>
+
+            {/* Priority Sequence Rank */}
+            <div className="space-y-1">
+              <Label className="text-xs">Priority Sequence Rank (1st, 2nd, 3rd...)</Label>
+              <Input
+                type="number"
+                min={1}
+                value={editPriority}
+                onChange={(e) => setEditPriority(parseInt(e.target.value) || 1)}
+                className="text-xs font-mono"
               />
             </div>
 
@@ -1516,6 +1840,7 @@ export function LeadRoutingPanel() {
                         tamilName: editTamilName.trim() || undefined,
                         phone: cleanPhone.startsWith("91") ? cleanPhone : `91${cleanPhone}`,
                         languages: editLanguages,
+                        priority: editPriority,
                       }
                     : e
                 );
