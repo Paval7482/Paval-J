@@ -127,12 +127,12 @@ function LoginPageInner() {
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="email" className="text-muted-foreground">
-                Username or Email (Login ID)
+                Username
               </Label>
               <Input
                 id="email"
                 type="text"
-                placeholder="e.g. mdsir, satheesh, subash..."
+                placeholder="Enter your username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
