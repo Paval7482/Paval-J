@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "SLI CRM - Executive WhatsApp Sync Assistant (POC)",
+  "version": "1.0.0",
+  "description": "Passive, policy-safe CRM assistant sidebar for Sri Lakshmi Industries Sales Executives.",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://web.whatsapp.com/*",
+    "http://localhost:3000/*",
+    "https://slicrm.vercel.app/*",
+    "https://sli-crm-rho.vercel.app/*"
+  ],
+  "background": {
+    "service_worker": "dist/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://web.whatsapp.com/*"],
+      "js": ["dist/content.js"],
+      "css": ["src/sidebar.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "SLI CRM Sync Assistant"
+  }
+}

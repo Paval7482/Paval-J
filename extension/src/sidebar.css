@@ -1,0 +1,124 @@
+/* SLI CRM Assistant Sidebar Widget */
+#sli-crm-assistant-sidebar {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  width: 320px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e2e8f0;
+  z-index: 999999;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #1e293b;
+  overflow: hidden;
+  transition: all 0.2s ease-in-out;
+}
+
+#sli-crm-assistant-sidebar.minimized {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #16a34a;
+  color: white;
+}
+
+.sli-sidebar-header {
+  background: #0f172a;
+  color: #ffffff;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sli-sidebar-title {
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sli-sidebar-body {
+  padding: 14px;
+  font-size: 12px;
+}
+
+.sli-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.sli-badge-eligible {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.sli-badge-blocked {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.sli-badge-quarantine {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.sli-btn-sync {
+  width: 100%;
+  background: #16a34a;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.sli-btn-sync:hover {
+  background: #15803d;
+}
+
+.sli-btn-sync:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+}
+
+.sli-btn-quarantine {
+  width: 100%;
+  background: #eab308;
+  color: #713f12;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 6px;
+}
+
+.sli-btn-blacklist {
+  width: 100%;
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  margin-top: 6px;
+}
