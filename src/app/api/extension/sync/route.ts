@@ -60,6 +60,13 @@ export async function POST(req: NextRequest) {
     const cleanCustomerPhone = customerPhone.replace(/\D/g, "");
     const cleanExecPhone = (executiveWhatsAppPhone || "").replace(/\D/g, "");
 
+    if (cleanCustomerPhone.length < 10) {
+      return NextResponse.json(
+        { ok: false, error: "INVALID_PHONE: Customer phone number must have at least 10 digits." },
+        { status: 400 }
+      );
+    }
+
     // 2. Protect Official Meta Cloud API Business Number (+91 99447 75513)
     if (cleanCustomerPhone === "919944775513" || cleanExecPhone === "919944775513") {
       return NextResponse.json(
