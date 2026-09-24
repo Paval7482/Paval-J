@@ -1,8 +1,9 @@
 "use client"
 
-import { UsersRound, Phone, Sparkles, CheckCircle2, TrendingUp, Clock, Award } from "lucide-react"
+import { UsersRound, Phone, Sparkles, UserCheck, ShieldCheck } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/hooks/use-auth"
 import type { ExecutiveLeadStatsBundle } from "@/lib/dashboard/types"
 
 const LANGUAGE_FLAGS: Record<string, { label: string; flag: string }> = {
@@ -20,6 +21,9 @@ interface ExecutiveLeadStatsProps {
 }
 
 export function ExecutiveLeadStats({ data, loading }: ExecutiveLeadStatsProps) {
+  const { isOwner, isAdmin, profile, user } = useAuth()
+  const isAdminOrOwner = isOwner || isAdmin
+
   if (loading || !data) {
     return (
       <Card className="border-border shadow-xs">
@@ -42,40 +46,98 @@ export function ExecutiveLeadStats({ data, loading }: ExecutiveLeadStatsProps) {
 
   const { executives, totalAssignedLeads, todayAssignedLeads } = data
 
+  // For non-admin/non-owner executives, filter down to their own card only
+  let visibleExecutives = executives
+  let displayTitle = "Executive Lead Assignment & Performance Breakdown"
+  let displayDescription = "Real-time assigned leads breakdown for every sales executive across WhatsApp and Meta inbound inquiries."
+  let displayBadge = "Live Lead Tracking"
+  let headerTotal = totalAssignedLeads
+  let headerToday = todayAssignedLeads
+
+  if (!isAdminOrOwner) {
+    const userFullName = (profile?.full_name || "").toLowerCase().trim()
+    const userEmail = (profile?.email || "").toLowerCase().trim()
+    const userId = user?.id || ""
+
+    const matched = executives.find((exec) => {
+      const execName = (exec.name || "").toLowerCase().trim()
+      const execTamilName = (exec.tamilName || "").toLowerCase().trim()
+      const execPhone = (exec.phone || "").replace(/\D/g, "")
+
+      return (
+        (exec.id && exec.id === userId) ||
+        (exec.phone && execPhone.length >= 10 && userEmail.includes(execPhone.slice(-10))) ||
+        (userFullName && (userFullName.includes(execName) || execName.includes(userFullName))) ||
+        (userFullName && execTamilName && userFullName.includes(execTamilName)) ||
+        (userEmail && execName && userEmail.includes(execName))
+      )
+    })
+
+    if (matched) {
+      visibleExecutives = [matched]
+      headerTotal = matched.totalLeads
+      headerToday = matched.todayLeads
+    } else if (executives.length > 0) {
+      // Fallback: match by partial name or first word
+      const firstName = userFullName.split(/\s+/)[0] || ""
+      const partialMatch = firstName && executives.find((e) => e.name.toLowerCase().includes(firstName))
+      if (partialMatch) {
+        visibleExecutives = [partialMatch]
+        headerTotal = partialMatch.totalLeads
+        headerToday = partialMatch.todayLeads
+      }
+    }
+
+    displayTitle = "My Assigned Leads & Performance"
+    displayDescription = "Your personal assigned leads overview, today's inquiries, and follow-up pipeline."
+    displayBadge = "My Performance"
+  }
+
   return (
     <Card className="border-primary/20 shadow-sm bg-gradient-to-b from-card to-muted/10">
       <CardHeader className="pb-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <UsersRound className="h-5 w-5 text-primary" />
+              {isAdminOrOwner ? (
+                <UsersRound className="h-5 w-5 text-primary" />
+              ) : (
+                <UserCheck className="h-5 w-5 text-primary" />
+              )}
               <CardTitle className="text-base font-semibold">
-                Executive Lead Assignment & Performance Breakdown
+                {displayTitle}
               </CardTitle>
               <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20 font-medium">
-                Live Lead Tracking
+                {isAdminOrOwner && <ShieldCheck className="h-3 w-3 mr-1 text-primary inline" />}
+                {displayBadge}
               </Badge>
             </div>
             <CardDescription className="text-xs mt-0.5">
-              Real-time assigned leads breakdown for every sales executive across WhatsApp and Meta inbound inquiries.
+              {displayDescription}
             </CardDescription>
           </div>
 
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="text-xs px-2.5 py-1 flex items-center gap-1.5 font-semibold">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
-              Today: <span className="text-primary font-bold">{todayAssignedLeads}</span> Leads
+              Today: <span className="text-primary font-bold">{headerToday}</span> Leads
             </Badge>
             <Badge className="bg-primary text-primary-foreground text-xs px-3 py-1 font-semibold">
-              Total: {totalAssignedLeads} Leads
+              Total: {headerTotal} Leads
             </Badge>
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          {executives.map((exec) => (
+        <div
+          className={`grid gap-3.5 ${
+            visibleExecutives.length === 1
+              ? "grid-cols-1 max-w-xl"
+              : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+          }`}
+        >
+          {visibleExecutives.map((exec) => (
             <div
               key={exec.id}
               className={`rounded-xl border p-4 transition-all flex flex-col justify-between ${

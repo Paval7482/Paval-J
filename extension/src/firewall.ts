@@ -1,13 +1,5 @@
 /**
  * 🛡️ SLI CRM Customer Eligibility Firewall (Browser-Level Isolation Engine)
- *
- * Enforces strict compliance rules client-side:
- * 1. Groups (@g.us) -> ALWAYS BLOCKED (0 Network Requests)
- * 2. Company Staff Numbers -> ALWAYS BLOCKED (0 Network Requests)
- * 3. Personal / Blacklisted Contacts -> ALWAYS BLOCKED (0 Network Requests)
- * 4. Official Business Number (+91 99447 75513) -> PROTECTED (0 Network Requests)
- * 5. Existing CRM Customer/Lead -> ELIGIBLE FOR MANUAL 1-CLICK SYNC
- * 6. Unknown Number -> QUARANTINED (No auto-sync / No auto-lead)
  */
 
 export type FirewallEligibility =
@@ -35,7 +27,6 @@ export interface FirewallContext {
 
 /**
  * Pure, isolated firewall evaluator.
- * Guarantees that if a conversation is blocked, no network sync request can ever proceed.
  */
 export function evaluateChatEligibility(
   chatId: string,
@@ -45,7 +36,7 @@ export function evaluateChatEligibility(
   const cleanPhone = (rawPhone || "").replace(/\D/g, "");
 
   // 1. Group Chat Rule
-  if (chatId.includes("@g.us") || chatId.includes("-") || !cleanPhone) {
+  if (chatId.includes("@g.us") || chatId.includes("-")) {
     return {
       eligibility: "BLOCKED_GROUP",
       isAllowedToSync: false,
@@ -53,7 +44,16 @@ export function evaluateChatEligibility(
     };
   }
 
-  // 2. Official Meta Cloud API Business Number Protection (+91 99447 75513)
+  // 2. Minimum 10-digit phone requirement
+  if (!cleanPhone || cleanPhone.length < 10) {
+    return {
+      eligibility: "QUARANTINED_UNKNOWN",
+      isAllowedToSync: false,
+      reason: "🟡 Missing valid phone number. Please enter/confirm the 10-digit mobile number.",
+    };
+  }
+
+  // 3. Official Meta Cloud API Business Number Protection (+91 99447 75513)
   if (cleanPhone === context.officialBusinessNumber.replace(/\D/g, "")) {
     return {
       eligibility: "BLOCKED_OFFICIAL_NUMBER",
@@ -62,7 +62,7 @@ export function evaluateChatEligibility(
     };
   }
 
-  // 3. Company Staff / Colleague Filter
+  // 4. Company Staff / Colleague Filter
   if (context.staffPhones.has(cleanPhone)) {
     return {
       eligibility: "BLOCKED_STAFF",
@@ -71,7 +71,7 @@ export function evaluateChatEligibility(
     };
   }
 
-  // 4. Personal Contact Blacklist (Explicitly blocked by executive)
+  // 5. Personal Contact Blacklist (Explicitly blocked by executive)
   if (context.personalBlacklist.has(cleanPhone)) {
     return {
       eligibility: "BLOCKED_PERSONAL",
@@ -80,8 +80,14 @@ export function evaluateChatEligibility(
     };
   }
 
-  // 5. Existing CRM Customer / Lead Check
-  const matchedCustomer = context.customerPhoneMap[cleanPhone];
+  // 6. Existing CRM Customer / Lead Check
+  const tenDigit = cleanPhone.length === 12 && cleanPhone.startsWith("91") ? cleanPhone.substring(2) : cleanPhone;
+  const twelveDigit = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+  const matchedCustomer =
+    context.customerPhoneMap[cleanPhone] ||
+    context.customerPhoneMap[tenDigit] ||
+    context.customerPhoneMap[twelveDigit];
+
   if (matchedCustomer) {
     return {
       eligibility: "ELIGIBLE_CUSTOMER",
@@ -92,7 +98,7 @@ export function evaluateChatEligibility(
     };
   }
 
-  // 6. Unknown Number -> Quarantine Rule
+  // 7. Unknown Number -> Quarantine Rule
   return {
     eligibility: "QUARANTINED_UNKNOWN",
     isAllowedToSync: false,

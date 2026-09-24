@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/use-auth';
 import {
   RAIL_GROUPS,
   SECTION_META,
@@ -31,6 +32,7 @@ export function SettingsRail({
   onSelect: (section: SettingsSection) => void;
   hints?: Partial<Record<SettingsSection, ReactNode>>;
 }) {
+  const { canEditSettings } = useAuth();
   const t = useTranslations('Settings');
   const activeRef = useRef<HTMLButtonElement>(null);
 
@@ -57,8 +59,9 @@ export function SettingsRail({
     >
       {RAIL_GROUPS.map(({ label, group }) => {
         const items = SETTINGS_SECTIONS.filter(
-          (s) => SECTION_META[s].group === group,
+          (s) => SECTION_META[s].group === group && (canEditSettings || !SECTION_META[s].adminOnly),
         );
+        if (items.length === 0) return null;
         return (
           <div
             key={group}

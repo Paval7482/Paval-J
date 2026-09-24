@@ -229,15 +229,21 @@ export default function ContactsPage() {
         let query = supabase
           .from('contacts')
           .select('*', { count: 'exact' })
-          .order('created_at', { ascending: false });
+          .order('updated_at', { ascending: false });
 
-        if (assignedContactIds !== null) {
+        if (assignedContactIds !== null && !term) {
           query = query.in('id', assignedContactIds);
         }
 
         if (term) {
           const like = `%${term}%`;
-          query = query.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
+          const digits = term.replace(/\D/g, '');
+          if (digits.length >= 4) {
+            const last10 = digits.slice(-10);
+            query = query.or(`name.ilike.${like},phone.ilike.${like},phone.ilike.%${digits}%,phone.ilike.%${last10}%,email.ilike.${like}`);
+          } else {
+            query = query.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
+          }
         }
 
         const { data, count: exactCount, error } = await query.range(from, to);

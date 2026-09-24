@@ -30,8 +30,20 @@ export async function GET(
     const customerPhone = contact.phone ? contact.phone.replace(/^\+/g, '') : '';
     const phoneClean = customerPhone.slice(-10);
 
-    // 2. Parallel queries
-    const [profile, callsRes, conversationRes, notesRes, dealsRes] = await Promise.all([
+    // 2. Fetch all related contact IDs matching this 10-digit phone number
+    let relatedContactIds = [contactId];
+    if (phoneClean && phoneClean.length >= 10) {
+      const { data: allRelated } = await admin
+        .from('contacts')
+        .select('id')
+        .ilike('phone', `%${phoneClean}%`);
+      if (allRelated && allRelated.length > 0) {
+        relatedContactIds = Array.from(new Set([...relatedContactIds, ...allRelated.map((c) => c.id)]));
+      }
+    }
+
+    // 3. Parallel queries
+    const [profile, callsRes, conversationsRes, notesRes, dealsRes] = await Promise.all([
       getCustomerProfile(admin, contactId),
       admin
         .from('call_logs')
@@ -41,31 +53,32 @@ export async function GET(
         .limit(50),
       admin
         .from('conversations')
-        .select('id, status')
-        .eq('contact_id', contactId)
-        .maybeSingle(),
+        .select('id, status, updated_at')
+        .in('contact_id', relatedContactIds)
+        .order('updated_at', { ascending: false }),
       admin
         .from('contact_notes')
         .select('*')
-        .eq('contact_id', contactId)
+        .in('contact_id', relatedContactIds)
         .order('created_at', { ascending: false }),
       admin
         .from('deals')
         .select('title, notes, created_at')
-        .eq('contact_id', contactId)
+        .in('contact_id', relatedContactIds)
         .order('created_at', { ascending: false })
         .limit(1),
     ]);
 
-    // 3. Fetch messages
+    // 4. Fetch all messages from all conversations associated with this customer
     let messages: any[] = [];
-    if (conversationRes.data?.id) {
+    const conversationIds = (conversationsRes.data || []).map((c) => c.id);
+    if (conversationIds.length > 0) {
       const { data: msgsData } = await admin
         .from('messages')
         .select('*')
-        .eq('conversation_id', conversationRes.data.id)
+        .in('conversation_id', conversationIds)
         .order('created_at', { ascending: true })
-        .limit(100);
+        .limit(200);
       messages = msgsData || [];
     }
 
@@ -105,7 +118,7 @@ export async function GET(
       calls: callsRes.data || [],
       messages,
       notes: notesRes.data || [],
-      conversationId: conversationRes.data?.id || null,
+      conversationId: conversationsRes.data?.[0]?.id || null,
     });
   } catch (err: unknown) {
     const { status, body } = toErrorResponse(err);

@@ -14,6 +14,7 @@ import {
   BellRing,
   Workflow,
   Wrench,
+  ArrowLeftRight,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -31,6 +32,7 @@ export const SETTINGS_SECTIONS = [
   'security',
   'appearance',
   'whatsapp',
+  'whatsapp-sync',
   'lead-routing',
   'meta-leads',
   'machines',
@@ -53,6 +55,7 @@ export interface SectionMeta {
   label: string;
   icon: LucideIcon;
   group: 'top' | 'account' | 'workspace';
+  adminOnly?: boolean;
 }
 
 export const SECTION_META: Record<SettingsSection, SectionMeta> = {
@@ -60,17 +63,18 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   profile: { id: 'profile', label: 'Your profile', icon: User, group: 'account' },
   security: { id: 'security', label: 'Login & security', icon: Shield, group: 'account' },
   appearance: { id: 'appearance', label: 'Appearance', icon: Palette, group: 'account' },
-  whatsapp: { id: 'whatsapp', label: 'WhatsApp', icon: PlugZap, group: 'workspace' },
-  'lead-routing': { id: 'lead-routing', label: 'Lead Assignment Flow', icon: Workflow, group: 'workspace' },
-  'meta-leads': { id: 'meta-leads', label: 'Meta Lead Ads', icon: Radio, group: 'workspace' },
-  machines: { id: 'machines', label: 'Machine Masters', icon: Wrench, group: 'workspace' },
-  'daily-reports': { id: 'daily-reports', label: 'Daily Reports (6:05 PM)', icon: BellRing, group: 'workspace' },
-  templates: { id: 'templates', label: 'Templates', icon: FileText, group: 'workspace' },
+  whatsapp: { id: 'whatsapp', label: 'WhatsApp Cloud API', icon: PlugZap, group: 'workspace', adminOnly: true },
+  'whatsapp-sync': { id: 'whatsapp-sync', label: 'WhatsApp Chat Sync', icon: ArrowLeftRight, group: 'workspace', adminOnly: true },
+  'lead-routing': { id: 'lead-routing', label: 'Lead Assignment Flow', icon: Workflow, group: 'workspace', adminOnly: true },
+  'meta-leads': { id: 'meta-leads', label: 'Meta Lead Ads', icon: Radio, group: 'workspace', adminOnly: true },
+  machines: { id: 'machines', label: 'Machine Masters', icon: Wrench, group: 'workspace', adminOnly: true },
+  'daily-reports': { id: 'daily-reports', label: 'Daily Reports (6:05 PM)', icon: BellRing, group: 'workspace', adminOnly: true },
+  templates: { id: 'templates', label: 'Templates', icon: FileText, group: 'workspace', adminOnly: true },
   'quick-replies': { id: 'quick-replies', label: 'Quick replies', icon: Zap, group: 'workspace' },
-  fields: { id: 'fields', label: 'Fields & tags', icon: Tags, group: 'workspace' },
-  deals: { id: 'deals', label: 'Deals & currency', icon: Coins, group: 'workspace' },
-  members: { id: 'members', label: 'Team members', icon: UsersRound, group: 'workspace' },
-  api: { id: 'api', label: 'API keys', icon: KeyRound, group: 'workspace' },
+  fields: { id: 'fields', label: 'Fields & tags', icon: Tags, group: 'workspace', adminOnly: true },
+  deals: { id: 'deals', label: 'Deals & currency', icon: Coins, group: 'workspace', adminOnly: true },
+  members: { id: 'members', label: 'Team members', icon: UsersRound, group: 'workspace', adminOnly: true },
+  api: { id: 'api', label: 'API keys', icon: KeyRound, group: 'workspace', adminOnly: true },
 };
 
 export const RAIL_GROUPS: { label: string | null; group: SectionMeta['group'] }[] = [

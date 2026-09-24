@@ -12,6 +12,7 @@ import { ProfileForm } from '@/components/settings/profile-form';
 import { SecurityPanel } from '@/components/settings/security-panel';
 import { AppearancePanel } from '@/components/settings/appearance-panel';
 import { WhatsAppConfig } from '@/components/settings/whatsapp-config';
+import { WhatsAppChatSyncPanel } from '@/components/settings/whatsapp-chat-sync-panel';
 import { TemplateManager } from '@/components/settings/template-manager';
 import { QuickRepliesManager } from '@/components/settings/quick-replies-manager';
 import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel';
@@ -24,6 +25,7 @@ import { DailyReportSettings } from '@/components/settings/daily-report-settings
 import { MachineMasterPanel } from '@/components/settings/machine-master-panel';
 import {
   resolveSection,
+  SECTION_META,
   type SettingsSection,
 } from '@/components/settings/settings-sections';
 
@@ -46,7 +48,7 @@ export default function SettingsPage() {
 function SettingsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { defaultCurrency } = useAuth();
+  const { defaultCurrency, canEditSettings, profileLoading } = useAuth();
   const { mode } = useTheme();
   const t = useTranslations('Settings');
 
@@ -54,7 +56,9 @@ function SettingsPageInner() {
   // section — deep-linkable, and it keeps the existing links in the
   // app sidebar/header working. Legacy tab values (tags, custom-fields)
   // resolve onto their new home; unknown/empty → the Overview landing.
-  const section = resolveSection(searchParams.get('tab'));
+  const rawSection = resolveSection(searchParams.get('tab'));
+  const isRestricted = !profileLoading && !canEditSettings && !!SECTION_META[rawSection]?.adminOnly;
+  const section = isRestricted ? 'overview' : rawSection;
 
   const go = (next: SettingsSection) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -79,6 +83,7 @@ function SettingsPageInner() {
     security: <SecurityPanel />,
     appearance: <AppearancePanel />,
     whatsapp: <WhatsAppConfig />,
+    'whatsapp-sync': <WhatsAppChatSyncPanel />,
     'lead-routing': <LeadRoutingPanel />,
     'meta-leads': <MetaLeadsPanel />,
     machines: <MachineMasterPanel />,

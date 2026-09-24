@@ -36,7 +36,7 @@ export function SettingsOverview({
 }: {
   onSelect: (section: SettingsSection) => void;
 }) {
-  const { user, profile, accountId, accountRole, defaultCurrency, canManageMembers } =
+  const { user, profile, accountId, accountRole, defaultCurrency, canManageMembers, canEditSettings } =
     useAuth();
   const { mode, theme } = useTheme();
   const t = useTranslations('Settings.overview');
@@ -159,6 +159,26 @@ export function SettingsOverview({
     subtitle: ReactNode;
   }[] = [
     {
+      section: 'profile',
+      loading: false,
+      subtitle: profile?.full_name || profile?.email || 'Manage personal profile & contact details',
+    },
+    {
+      section: 'security',
+      loading: false,
+      subtitle: 'Change password & security credentials',
+    },
+    {
+      section: 'quick-replies',
+      loading: false,
+      subtitle: 'Canned response templates for instant chatting',
+    },
+    {
+      section: 'appearance',
+      loading: false,
+      subtitle: t('appearance', { mode: cap(mode), theme: themeName }),
+    },
+    {
       section: 'whatsapp',
       loading: whatsappLoading,
       subtitle: !whatsapp?.configured ? (
@@ -231,12 +251,11 @@ export function SettingsOverview({
               count: counts?.customFields ?? 0,
             })}`,
     },
-    {
-      section: 'appearance',
-      loading: false,
-      subtitle: t('appearance', { mode: cap(mode), theme: themeName }),
-    },
   ];
+
+  const visibleTiles = tiles.filter(
+    (tile) => canEditSettings || !SECTION_META[tile.section]?.adminOnly
+  );
 
   return (
     <section className="animate-in fade-in-50 duration-200">
@@ -270,7 +289,7 @@ export function SettingsOverview({
 
       {/* Status tiles */}
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {tiles.map(({ section, loading, subtitle }) => {
+        {visibleTiles.map(({ section, loading, subtitle }) => {
           const meta = SECTION_META[section];
           const Icon = meta.icon;
           return (

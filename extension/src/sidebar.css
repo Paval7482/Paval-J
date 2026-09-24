@@ -1,62 +1,246 @@
-/* SLI CRM Assistant Sidebar Widget */
+/* 🏢 Sri Lakshmi Industries - WhatsApp Web Assistant Sidebar */
 #sli-crm-assistant-sidebar {
   position: fixed;
-  top: 12px;
-  right: 12px;
-  width: 320px;
+  top: 16px;
+  right: 16px;
+  width: 340px;
+  max-height: calc(100vh - 32px);
   background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  border-radius: 14px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
   border: 1px solid #e2e8f0;
   z-index: 999999;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color: #1e293b;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  transition: all 0.2s ease-in-out;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #sli-crm-assistant-sidebar.minimized {
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   cursor: pointer;
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #16a34a;
+  background: #059669;
   color: white;
+  box-shadow: 0 8px 24px rgba(5, 150, 105, 0.35);
+  border: 2px solid #ffffff;
+}
+
+#sli-crm-assistant-sidebar.minimized .sli-sidebar-header,
+#sli-crm-assistant-sidebar.minimized .sli-sidebar-body {
+  display: none;
+}
+
+#sli-crm-assistant-sidebar.minimized::after {
+  content: "🏢";
+  font-size: 22px;
 }
 
 .sli-sidebar-header {
   background: #0f172a;
   color: #ffffff;
-  padding: 10px 14px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+}
+
+.sli-sidebar-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sli-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sli-icon-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.sli-icon-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.sli-sidebar-body {
+  padding: 14px 16px;
+  overflow-y: auto;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Executive Identity Bar */
+.sli-executive-bar {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.sli-sidebar-title {
-  font-size: 13px;
+.sli-exec-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sli-exec-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #059669;
+  color: white;
+  font-weight: 700;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sli-exec-name {
   font-weight: 600;
+  font-size: 12px;
+  color: #0f172a;
+}
+
+.sli-exec-phone {
+  font-size: 10px;
+  color: #64748b;
+  font-family: monospace;
+}
+
+/* Auto Sync Banner */
+.sli-autosync-card {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sli-autosync-label {
+  font-weight: 600;
+  color: #065f46;
+  font-size: 12px;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.sli-sidebar-body {
-  padding: 14px;
-  font-size: 12px;
+.sli-autosync-desc {
+  font-size: 10px;
+  color: #047857;
+  margin-top: 2px;
 }
 
-.sli-badge {
+/* iOS-style toggle switch */
+.sli-switch {
+  position: relative;
   display: inline-block;
+  width: 36px;
+  height: 20px;
+  shrink: 0;
+}
+
+.sli-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.sli-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cbd5e1;
+  transition: 0.3s;
+  border-radius: 20px;
+}
+
+.sli-slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+input:checked + .sli-slider {
+  background-color: #059669;
+}
+
+input:checked + .sli-slider:before {
+  transform: translateX(16px);
+}
+
+/* Section Cards */
+.sli-section-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.sli-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #64748b;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Badges */
+.sli-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 3px 8px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .sli-badge-eligible {
@@ -74,51 +258,118 @@
   color: #854d0e;
 }
 
-.sli-btn-sync {
+/* Buttons */
+.sli-btn-primary {
   width: 100%;
-  background: #16a34a;
+  background: #059669;
   color: white;
   border: none;
   border-radius: 6px;
   padding: 8px 12px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  margin-top: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  transition: background 0.15s;
 }
 
-.sli-btn-sync:hover {
-  background: #15803d;
+.sli-btn-primary:hover {
+  background: #047857;
 }
 
-.sli-btn-sync:disabled {
-  background: #cbd5e1;
+.sli-btn-primary:disabled {
+  background: #94a3b8;
   cursor: not-allowed;
 }
 
-.sli-btn-quarantine {
-  width: 100%;
-  background: #eab308;
-  color: #713f12;
-  border: none;
-  border-radius: 6px;
-  padding: 7px 10px;
-  font-weight: 600;
-  cursor: pointer;
-  margin-top: 6px;
-}
-
-.sli-btn-blacklist {
+.sli-btn-secondary {
   width: 100%;
   background: #f1f5f9;
-  color: #64748b;
+  color: #475569;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   padding: 6px 10px;
   font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   margin-top: 6px;
+  transition: background 0.15s;
+}
+
+.sli-btn-secondary:hover {
+  background: #e2e8f0;
+}
+
+.sli-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 11.5px;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.sli-input:focus {
+  border-color: #059669;
+}
+
+/* Date Range Grid */
+.sli-date-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.sli-date-group label {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: #64748b;
+  display: block;
+  margin-bottom: 2px;
+}
+
+/* Blocklist List */
+.sli-blocklist {
+  max-height: 120px;
+  overflow-y: auto;
+  border: 1px solid #f1f5f9;
+  border-radius: 6px;
+  padding: 4px;
+  margin: 6px 0;
+}
+
+.sli-block-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px;
+  font-size: 11px;
+  font-family: monospace;
+  background: #f8fafc;
+  border-radius: 4px;
+  margin-bottom: 3px;
+}
+
+.sli-btn-del {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+
+.sli-login-card {
+  padding: 8px 4px;
+  text-align: center;
 }

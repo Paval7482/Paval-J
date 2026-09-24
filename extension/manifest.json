@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "SLI CRM - Executive WhatsApp Sync Assistant (POC)",
-  "version": "1.0.0",
-  "description": "Passive, policy-safe CRM assistant sidebar for Sri Lakshmi Industries Sales Executives.",
+  "name": "SLI CRM - WhatsApp Chat Sync Assistant",
+  "version": "1.1.0",
+  "description": "Smart, policy-safe WhatsApp Web chat sync assistant for Sri Lakshmi Industries Sales Executives.",
   "permissions": [
     "storage",
     "activeTab"

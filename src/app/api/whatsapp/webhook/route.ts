@@ -1040,8 +1040,12 @@ async function dispatchInstantLeadAlert(args: {
       chosenExec = await getNextRoundRobinExecutiveAsync(undefined, detectedLang)
       await supabaseAdmin()
         .from('conversations')
-        .update({ assigned_agent_id: chosenExec.user_id, assigned_to: chosenExec.user_id })
+        .update({ assigned_agent_id: chosenExec.user_id })
         .eq('id', conversationId)
+      await supabaseAdmin()
+        .from('contacts')
+        .update({ user_id: chosenExec.user_id })
+        .eq('id', contactRecord.id)
       console.info(
         `[LeadRouting] Assigned new lead/form conversation ${conversationId} to ${chosenExec.name} (${chosenExec.user_id})`
       )
@@ -1063,8 +1067,12 @@ async function dispatchInstantLeadAlert(args: {
         chosenExec = await getNextRoundRobinExecutiveAsync(undefined, detectedLang)
         await supabaseAdmin()
           .from('conversations')
-          .update({ assigned_agent_id: chosenExec.user_id, assigned_to: chosenExec.user_id })
+          .update({ assigned_agent_id: chosenExec.user_id })
           .eq('id', conversationId)
+        await supabaseAdmin()
+          .from('contacts')
+          .update({ user_id: chosenExec.user_id })
+          .eq('id', contactRecord.id)
       }
     }
   } catch (assignErr) {
@@ -1124,28 +1132,28 @@ async function dispatchInstantLeadAlert(args: {
   const shouldAlert = isFirstInboundMessage || parsedLead.isLeadForm || isReturningLead
   if (!shouldAlert) return
 
-  // 5. Throttle check: Avoid duplicate alerts within 15 minutes for the same customer
+  // 5. Throttle check: Avoid duplicate alerts within 15 minutes for the exact same customer via contact_notes
   try {
     const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString()
-    const { data: recentAlert } = await supabaseAdmin()
-      .from('messages')
+    const { data: recentAlertNote } = await supabaseAdmin()
+      .from('contact_notes')
       .select('id')
-      .eq('sender_type', 'bot')
-      .ilike('content_text', `%${cleanCustomerPhone}%`)
+      .eq('contact_id', contactRecord.id)
+      .ilike('note_text', '%Lead Alert Dispatched%')
       .gt('created_at', fifteenMinsAgo)
       .limit(1)
       .maybeSingle()
 
-    if (recentAlert) {
+    if (recentAlertNote) {
       console.info(
-        `[webhook] Lead alert throttled for customer ${cleanCustomerPhone} (alerted in last 15m)`
+        `[webhook] Lead alert throttled for customer ${cleanCustomerPhone} (already alerted in last 15m)`
       )
       return
     }
 
     const msgSnippet = (inboundText || `[${messageType}]`).trim().slice(0, 300)
 
-    // Dispatch dual alerts: MD Sir + Assigned Executive (Bilingual Tamil & English)
+    // Dispatch dual alerts: MD Sir + Assigned Executive (Bilingual Tamil & English via Approved Meta Template)
     await sendLeadAlerts({
       customerName: customerDisplayName,
       customerPhone: cleanCustomerPhone,
@@ -1156,6 +1164,15 @@ async function dispatchInstantLeadAlert(args: {
       accessToken,
       phoneNumberId,
     })
+
+    // Record note in contact timeline to track alert history and prevent duplicate alerts
+    await supabaseAdmin().from('contact_notes').insert({
+      account_id: accountId,
+      contact_id: contactRecord.id,
+      user_id: chosenExec.user_id,
+      note_text: `🚨 Lead Alert Dispatched to ${chosenExec.name} (+${chosenExec.phone}) & MD Sir for customer ${customerDisplayName}`,
+    })
+
     console.info(
       `[webhook] Lead alerts successfully dispatched to MD Sir and Executive ${chosenExec.name} (+${chosenExec.phone}) for customer ${cleanCustomerPhone}`
     )

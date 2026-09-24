@@ -1,0 +1,5 @@
+PKSLI-CallSync-v1.0-SriLakshmiIndustries-Android-App
+Package: com.srilakshmiindustries.callsync
+Version: 1.0.0
+Permissions: READ_CALL_LOG, READ_PHONE_STATE, RECORD_AUDIO, READ_EXTERNAL_STORAGE, INTERNET
+SyncEndpoint: /api/mobile/upload-call

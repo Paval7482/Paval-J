@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Phone,
@@ -163,6 +164,25 @@ export default function CallsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [agentFilter, setAgentFilter] = useState<string>("all");
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [syncingTeleCrm, setSyncingTeleCrm] = useState(false);
+
+  const handleSyncTeleCrm = async () => {
+    try {
+      setSyncingTeleCrm(true);
+      const res = await fetch("/api/telecrm/sync-calls", { method: "POST" });
+      const data = await res.json();
+      if (data.ok) {
+        toast.success(data.data?.message || "Synced TeleCRM calls successfully");
+        await fetchCalls();
+      } else {
+        toast.error(data.error || "Failed to sync TeleCRM calls");
+      }
+    } catch {
+      toast.error("Error syncing TeleCRM calls");
+    } finally {
+      setSyncingTeleCrm(false);
+    }
+  };
 
   // Date Filter State
   const [datePreset, setDatePreset] = useState<string>("all");
@@ -238,7 +258,7 @@ export default function CallsPage() {
     const headers = [
       "Agent Name",
       "Agent Phone",
-      "Virtual Number",
+      "Virtual Number / Source",
       "Call Status",
       "Customer Number",
       "Call Duration",
@@ -348,7 +368,9 @@ export default function CallsPage() {
     c.call_status.toLowerCase().includes("connected"),
   ).length;
   const missedCalls = calls.filter((c) =>
-    c.call_status.toLowerCase().includes("missed"),
+    c.call_status.toLowerCase().includes("missed") ||
+    c.call_status.toLowerCase().includes("no answer") ||
+    c.call_status.toLowerCase().includes("rejected"),
   ).length;
 
   // Pagination calculation
@@ -365,18 +387,32 @@ export default function CallsPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                MyTelly Calls
+                Call Logs & Telephony
               </h1>
               <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-                Virtual No: 9672115123
+                IVR: 9672115123
+              </Badge>
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300">
+                TeleCRM Integrated
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Real-time incoming & missed calls log from MyTelly IVR system
+              Real-time incoming & outgoing calls log from MyTelly IVR & TeleCRM App
             </p>
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSyncTeleCrm}
+              disabled={syncingTeleCrm}
+              className="gap-2 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-800 border-indigo-300 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800 shadow-xs"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncingTeleCrm ? "animate-spin" : ""}`} />
+              <span>Sync TeleCRM Calls</span>
+            </Button>
+
             <Button
               variant="outline"
               size="sm"
@@ -398,6 +434,25 @@ export default function CallsPage() {
               Refresh Logs
             </Button>
           </div>
+        </div>
+
+        {/* Tab Navigation Switcher */}
+        <div className="flex items-center gap-2 border-b border-border/60 pb-1">
+          <Link
+            href="/calls"
+            className="px-3 py-1.5 text-xs font-semibold rounded-md bg-primary text-primary-foreground shadow-xs"
+          >
+            All Calls & IVR
+          </Link>
+          <Link
+            href="/telecrm-calls"
+            className="px-3 py-1.5 text-xs font-medium rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex items-center gap-1.5"
+          >
+            <span>TeleCRM Dashboard</span>
+            <span className="inline-flex items-center rounded-md px-1.5 py-0 text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300">
+              Dedicated View
+            </span>
+          </Link>
         </div>
 
         {/* Filter and Search Bar (Sticky along with top header) */}
@@ -669,9 +724,17 @@ export default function CallsPage() {
                         </div>
                       </td>
 
-                      {/* Virtual Number */}
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                        {call.virtual_number || "9672115123"}
+                      {/* Virtual Number / Source */}
+                      <td className="px-4 py-3">
+                        {call.virtual_number === "TeleCRM" ? (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                            TeleCRM App
+                          </span>
+                        ) : (
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {call.virtual_number || "9672115123"}
+                          </span>
+                        )}
                       </td>
 
                       {/* Call Status */}

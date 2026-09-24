@@ -37,9 +37,13 @@ const MASKED_TOKEN = '••••••••••••••••';
 type ConnectionStatus = 'connected' | 'disconnected' | 'unknown';
 type ResetReason = 'token_corrupted' | 'meta_api_error' | null;
 
+import { QRConnectModal } from '@/components/whatsapp-bridge/qr-connect-modal';
+import { Smartphone, QrCode, Sparkles } from 'lucide-react';
+
 export function WhatsAppConfig() {
   const t = useTranslations('Settings.whatsapp');
   const supabase = createClient();
+  const [qrModalOpen, setQrModalOpen] = useState(false);
   // After multi-user, whatsapp_config is one-row-per-account, not
   // one-row-per-user. We pull `accountId` straight off the auth
   // context and key every read off it — so a teammate who just
@@ -474,6 +478,44 @@ export function WhatsAppConfig() {
             </div>
           </Alert>
         )}
+
+        {/* 📱 Executive WhatsApp Direct Connect Card */}
+        <Card className="border-emerald-500/30 bg-emerald-500/5 shadow-xs overflow-hidden">
+          <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="p-3 bg-emerald-600 text-white rounded-2xl shadow-xs shrink-0">
+                <Smartphone className="size-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-foreground">
+                    Executive WhatsApp Direct Connect
+                  </h3>
+                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    In-App Linked Device
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Link sales executive WhatsApp via 1-time QR code for real-time background customer sync.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              onClick={() => setQrModalOpen(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shrink-0 gap-1.5 shadow-xs"
+            >
+              <QrCode className="size-4" />
+              Link WhatsApp Device (QR Code)
+            </Button>
+          </CardContent>
+        </Card>
+
+        <QRConnectModal
+          open={qrModalOpen}
+          onOpenChange={setQrModalOpen}
+          userId={user?.id}
+        />
 
         {/* Connection Status */}
         <Alert className="bg-card border-border">

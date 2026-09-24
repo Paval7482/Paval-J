@@ -70,17 +70,24 @@ export async function GET(req: NextRequest) {
       .from("contact_notes")
       .select("id, contact_id, note_text, created_at, contacts(phone, name)")
       .eq("account_id", ctx.accountId)
-      .ilike("note_text", "%MyTelly%")
+      .or("note_text.ilike.%📞%,note_text.ilike.%MyTelly%,note_text.ilike.%TeleCRM%,note_text.ilike.%Call Status%")
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(300);
 
     const fallbackLogs = (notes || []).map((n: any) => {
       const text = n.note_text || "";
-      const isMissed = text.toLowerCase().includes("missed");
-      const agentMatch = text.match(/Executive:\s*([^\n]+)/);
-      const durationMatch = text.match(/Duration:\s*([^\n]+)/);
-      const audioMatch = text.match(/(?:Audio|Recording):\s*([^\n]+)/);
-      const timeMatch = text.match(/Time:\s*([^\n]+)/);
+      const isTeleCrm = text.includes("TeleCRM");
+      const isMissed =
+        text.toLowerCase().includes("missed") ||
+        text.toLowerCase().includes("no answer") ||
+        text.toLowerCase().includes("rejected") ||
+        text.toLowerCase().includes("none (missed");
+
+      const agentMatch = text.match(/(?:👤\s*Executive|Executive):\s*([^|\n]+)/);
+      const durationMatch = text.match(/(?:⏱️\s*Duration|Duration):\s*([^|\n]+)/);
+      const audioMatch = text.match(/(?:🎙️\s*Audio Recording|Audio|Recording):\s*([^|\n]+)/);
+      const timeMatch = text.match(/(?:📅\s*Time|Time):\s*([^|\n]+)/);
+      const statusMatch = text.match(/(?:📞\s*Call Status|Status):\s*([^|\n]+)/);
 
       const fullAgent = agentMatch ? agentMatch[1].trim() : isMissed ? "--" : "Sales";
       let agent_name = fullAgent;
@@ -108,14 +115,24 @@ export async function GET(req: NextRequest) {
         call_date = new Date(n.created_at).toISOString().split("T")[0];
       }
 
+      let call_status = isMissed ? "Missed" : "Connected";
+      if (statusMatch) {
+        const parsedStatus = statusMatch[1].trim();
+        if (parsedStatus) {
+          call_status = parsedStatus;
+        }
+      }
+
+      const virtual_number = isTeleCrm ? "TeleCRM" : "9672115123";
+
       return {
         id: n.id,
         account_id: ctx.accountId,
         customer_number: n.contacts?.phone || "Unknown",
-        virtual_number: "9672115123",
+        virtual_number,
         agent_name,
         agent_phone,
-        call_status: isMissed ? "Missed" : "Connected",
+        call_status,
         call_duration: durationMatch ? durationMatch[1].trim() : "00:00:00",
         call_date,
         start_time,
