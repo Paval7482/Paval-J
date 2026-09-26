@@ -9,7 +9,7 @@ import {
   normalizeKey,
 } from '@/lib/contacts/dedupe';
 import {
-  parseContactCsv,
+  parseContactSpreadsheet,
   type ParsedContactRow,
 } from '@/lib/contacts/parse-contact-csv';
 import {
@@ -168,15 +168,15 @@ export function ImportModal({
     setFile(selected);
     setResult(null);
 
-    const text = await selected.text();
+    const buffer = await selected.arrayBuffer();
     const {
       rows,
       hasTagsColumn: csvHasTags,
       hasCompanyColumn: csvHasCompany,
-    } = parseContactCsv(text);
+    } = parseContactSpreadsheet(buffer, selected.name);
 
     if (rows.length === 0) {
-      toast.error(t('toastNoValidRows'));
+      toast.error('No valid contact rows with phone numbers found in the file.');
       setParsedRows([]);
       setHasTagsColumn(false);
       setHasCompanyColumn(false);
@@ -447,10 +447,10 @@ export function ImportModal({
                   <Upload className="size-5 text-muted-foreground group-hover:text-foreground" />
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {t('uploadDropzone')}
+                  Click or drag to choose an Excel (.xlsx / .xls) or CSV file
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  {t('uploadHint')}
+                  .xlsx, .xls, .csv, .tsv supported with automatic column detection
                 </p>
               </>
             )}
@@ -459,7 +459,7 @@ export function ImportModal({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,.xlsx,.xls,.tsv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/tab-separated-values"
             onChange={handleFileChange}
             className="hidden"
           />

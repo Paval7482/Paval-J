@@ -1,6 +1,8 @@
+import * as XLSX from 'xlsx';
+
 /**
- * CSV parsing for the contacts import modal. Shared + unit-tested so
- * tag-column handling stays aligned with phone/name/email/company.
+ * Spreadsheet & CSV parsing for the contacts import modal.
+ * Supports .xlsx, .xls, .csv, .tsv files with flexible column headers.
  */
 
 export interface ParsedContactRow {
@@ -12,14 +14,16 @@ export interface ParsedContactRow {
   tagNames: string[];
 }
 
-/** Split a CSV cell into unique tag names (case-insensitive de-dupe). */
-export function parseTagCell(value: string | undefined): string[] {
-  if (!value?.trim()) return [];
+/** Split a cell value into unique tag names (case-insensitive de-dupe). */
+export function parseTagCell(value: string | undefined | null): string[] {
+  if (!value) return [];
+  const str = String(value).trim();
+  if (!str) return [];
 
   const seen = new Set<string>();
   const names: string[] = [];
 
-  for (const part of value.split(/[,;]/)) {
+  for (const part of str.split(/[,;]/)) {
     const name = part.trim();
     if (!name) continue;
     const key = name.toLowerCase();
@@ -31,86 +35,175 @@ export function parseTagCell(value: string | undefined): string[] {
   return names;
 }
 
-export interface ParseContactCsvResult {
+export interface ParseContactSpreadsheetResult {
   rows: ParsedContactRow[];
-  /** True when the CSV header includes a `tags` column. */
   hasTagsColumn: boolean;
-  /** True when the CSV header includes a `company` column. */
   hasCompanyColumn: boolean;
 }
 
-export function parseContactCsv(text: string): ParseContactCsvResult {
-  const lines = text.trim().split(/\r?\n/);
-  if (lines.length < 2) {
-    return { rows: [], hasTagsColumn: false, hasCompanyColumn: false };
-  }
-
-  const headers = lines[0]
-    .split(',')
-    .map((h) => h.trim().toLowerCase().replace(/["']/g, ''));
-
-  const phoneIdx = headers.indexOf('phone');
-  if (phoneIdx === -1) {
-    return { rows: [], hasTagsColumn: false, hasCompanyColumn: false };
-  }
-
-  const nameIdx = headers.indexOf('name');
-  const emailIdx = headers.indexOf('email');
-  const companyIdx = headers.indexOf('company');
-  const tagsIdx = headers.indexOf('tags');
-
-  const rows: ParsedContactRow[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-
-    const values = parseCsvLine(line);
-    const phone = values[phoneIdx]?.replace(/["']/g, '').trim();
-    if (!phone) continue;
-
-    rows.push({
-      phone,
-      name:
-        nameIdx >= 0
-          ? values[nameIdx]?.replace(/["']/g, '').trim() || undefined
-          : undefined,
-      email:
-        emailIdx >= 0
-          ? values[emailIdx]?.replace(/["']/g, '').trim() || undefined
-          : undefined,
-      company:
-        companyIdx >= 0
-          ? values[companyIdx]?.replace(/["']/g, '').trim() || undefined
-          : undefined,
-      tagNames:
-        tagsIdx >= 0 ? parseTagCell(values[tagsIdx]?.replace(/["']/g, '')) : [],
-    });
-  }
-
-  return {
-    rows,
-    hasTagsColumn: tagsIdx >= 0,
-    hasCompanyColumn: companyIdx >= 0,
-  };
+function normalizeHeader(h: string): string {
+  return h.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-/** Simple CSV line parse (handles quoted fields). */
-function parseCsvLine(line: string): string[] {
-  const values: string[] = [];
-  let current = '';
-  let inQuotes = false;
+/**
+ * Universal parser for Contacts from either an ArrayBuffer (Excel/CSV) or text string.
+ */
+export function parseContactSpreadsheet(
+  data: ArrayBuffer | string,
+  filename?: string
+): ParseContactSpreadsheetResult {
+  try {
+    let workbook: XLSX.WorkBook;
 
-  for (const char of line) {
-    if (char === '"') {
-      inQuotes = !inQuotes;
-    } else if (char === ',' && !inQuotes) {
-      values.push(current.trim());
-      current = '';
+    if (typeof data === 'string') {
+      workbook = XLSX.read(data, { type: 'string' });
     } else {
-      current += char;
+      workbook = XLSX.read(data, { type: 'array' });
     }
+
+    const firstSheetName = workbook.SheetNames[0];
+    if (!firstSheetName) {
+      return { rows: [], hasTagsColumn: false, hasCompanyColumn: false };
+    }
+
+    const worksheet = workbook.Sheets[firstSheetName];
+    if (!worksheet) {
+      return { rows: [], hasTagsColumn: false, hasCompanyColumn: false };
+    }
+
+    // Convert sheet to JSON array of row objects
+    const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, {
+      defval: '',
+      raw: false,
+    });
+
+    if (rawRows.length === 0) {
+      return { rows: [], hasTagsColumn: false, hasCompanyColumn: false };
+    }
+
+    // Find matching column names dynamically
+    const sampleRow = rawRows[0] || {};
+    const headers = Object.keys(sampleRow);
+
+    const phoneKey = headers.find((h) => {
+      const n = normalizeHeader(h);
+      return (
+        n === 'phone' ||
+        n === 'phonenumber' ||
+        n === 'mobile' ||
+        n === 'mobilenumber' ||
+        n === 'contact' ||
+        n === 'contactnumber' ||
+        n === 'cell' ||
+        n === 'telephone' ||
+        n === 'whatsapp' ||
+        n === 'number'
+      );
+    });
+
+    if (!phoneKey) {
+      // Fallback: search for any column whose values look like 10-digit phone numbers
+      const guessedPhoneKey = headers.find((h) => {
+        const val = String(sampleRow[h] || '').replace(/\D/g, '');
+        return val.length >= 10 && val.length <= 13;
+      });
+      if (!guessedPhoneKey) {
+        return { rows: [], hasTagsColumn: false, hasCompanyColumn: false };
+      }
+    }
+
+    const effectivePhoneKey = phoneKey || headers.find((h) => {
+      const val = String(sampleRow[h] || '').replace(/\D/g, '');
+      return val.length >= 10 && val.length <= 13;
+    })!;
+
+    const nameKey = headers.find((h) => {
+      const n = normalizeHeader(h);
+      return (
+        n === 'name' ||
+        n === 'fullname' ||
+        n === 'customername' ||
+        n === 'contactname' ||
+        n === 'clientname' ||
+        n === 'person' ||
+        n === 'buyer'
+      );
+    });
+
+    const emailKey = headers.find((h) => {
+      const n = normalizeHeader(h);
+      return n === 'email' || n === 'emailaddress' || n === 'mail' || n === 'mailid';
+    });
+
+    const companyKey = headers.find((h) => {
+      const n = normalizeHeader(h);
+      return (
+        n === 'company' ||
+        n === 'companyname' ||
+        n === 'business' ||
+        n === 'businessname' ||
+        n === 'organization' ||
+        n === 'firm' ||
+        n === 'enterprise'
+      );
+    });
+
+    const tagsKey = headers.find((h) => {
+      const n = normalizeHeader(h);
+      return (
+        n === 'tags' ||
+        n === 'tag' ||
+        n === 'labels' ||
+        n === 'label' ||
+        n === 'category' ||
+        n === 'source' ||
+        n === 'segment'
+      );
+    });
+
+    const rows: ParsedContactRow[] = [];
+
+    for (const raw of rawRows) {
+      const rawPhone = String(raw[effectivePhoneKey] || '').trim();
+      const cleanDigits = rawPhone.replace(/\D/g, '');
+      if (!cleanDigits || cleanDigits.length < 7) continue;
+
+      // Format clean phone number
+      const phone =
+        cleanDigits.length === 10
+          ? `+91${cleanDigits}`
+          : cleanDigits.startsWith('91') && cleanDigits.length === 12
+          ? `+${cleanDigits}`
+          : rawPhone.startsWith('+')
+          ? rawPhone
+          : `+${cleanDigits}`;
+
+      const name = nameKey && raw[nameKey] ? String(raw[nameKey]).trim() : undefined;
+      const email = emailKey && raw[emailKey] ? String(raw[emailKey]).trim() : undefined;
+      const company = companyKey && raw[companyKey] ? String(raw[companyKey]).trim() : undefined;
+      const tagNames = tagsKey && raw[tagsKey] ? parseTagCell(String(raw[tagsKey])) : [];
+
+      rows.push({
+        phone,
+        name: name || undefined,
+        email: email || undefined,
+        company: company || undefined,
+        tagNames,
+      });
+    }
+
+    return {
+      rows,
+      hasTagsColumn: Boolean(tagsKey),
+      hasCompanyColumn: Boolean(companyKey),
+    };
+  } catch (error) {
+    console.error('[Parse Spreadsheet Error]:', error);
+    return { rows: [], hasTagsColumn: false, hasCompanyColumn: false };
   }
-  values.push(current.trim());
-  return values;
+}
+
+/** Backward compatibility alias */
+export function parseContactCsv(text: string): ParseContactSpreadsheetResult {
+  return parseContactSpreadsheet(text);
 }

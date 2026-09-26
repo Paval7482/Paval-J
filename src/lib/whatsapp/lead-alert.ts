@@ -721,8 +721,35 @@ export async function sendLeadAlerts({
     for (const admin of activeAdmins) {
       const cleanAdminPhone = admin.phone.replace(/\D/g, "");
       try {
-        // Send rich management summary text message directly
+        let adminTmplDelivered = false;
         try {
+          // Use officially approved Meta Management Template
+          await sendTemplateMessage({
+            phoneNumberId,
+            accessToken,
+            to: cleanAdminPhone,
+            templateName: "sli_mgmt_lead_summary",
+            language: "en_US",
+            params: [
+              customerName || "New Lead",
+              cleanCustomerPhone,
+              requirement || "Murukku Machine",
+              location || "Tamil Nadu",
+              `${assignedExec.name} (+${assignedExec.phone.replace(/\D/g, "")})`,
+              String(sla || 5),
+            ],
+          });
+          adminTmplDelivered = true;
+          console.info(
+            `[LeadAlert] Management summary delivered via approved Meta Template sli_mgmt_lead_summary (en_US) to ${admin.name} (${cleanAdminPhone})`
+          );
+        } catch (templateErr1: any) {
+          console.warn(
+            `[LeadAlert] Meta Template sli_mgmt_lead_summary (en_US) error for admin ${admin.name}: ${templateErr1.message}, trying direct text fallback...`
+          );
+        }
+
+        if (!adminTmplDelivered) {
           await sendTextMessage({
             phoneNumberId,
             accessToken,
@@ -730,30 +757,7 @@ export async function sendLeadAlerts({
             text: mdMsg,
           });
           console.info(
-            `[LeadAlert] Management summary delivered via text message to ${admin.name} (${cleanAdminPhone})`
-          );
-        } catch (textErr: any) {
-          console.warn(
-            `[LeadAlert] Direct text message failed for admin ${admin.name}: ${textErr.message}. Fallback to template...`
-          );
-          // Fallback to Meta Template if 24h window is closed
-          await sendTemplateMessage({
-            phoneNumberId,
-            accessToken,
-            to: cleanAdminPhone,
-            templateName: "sli_sales_lead_alert",
-            language: "en_US",
-            params: [
-              `[ASSIGNED TO ${assignedExec.name.toUpperCase()}] ${customerName || "New Lead"}`,
-              cleanCustomerPhone,
-              requirement || "Murukku Machine",
-              location || "Tamil Nadu",
-              nowStr,
-              `${sla || 5} (Executive ${assignedExec.name} is calling)`,
-            ],
-          });
-          console.info(
-            `[LeadAlert] Management template fallback delivered to ${admin.name} (${cleanAdminPhone})`
+            `[LeadAlert] Management summary sent via text fallback to ${admin.name} (${cleanAdminPhone})`
           );
         }
       } catch (err) {

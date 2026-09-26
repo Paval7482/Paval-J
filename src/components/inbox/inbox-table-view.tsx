@@ -391,20 +391,20 @@ export function InboxTableView({
       </div>
 
       {/* Main Table Matching MyTelly Portal UI */}
-      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-border bg-muted/50 text-xs uppercase font-semibold text-muted-foreground">
+      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden flex flex-col">
+        <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] sm:max-h-[calc(100vh-280px)] [scrollbar-width:thin]">
+          <table className="w-full text-left text-sm relative">
+            <thead className="sticky top-0 z-20 border-b border-border bg-muted/95 backdrop-blur-md text-xs uppercase font-semibold text-muted-foreground shadow-xs">
               <tr>
-                <th className="px-4 py-3.5">Customer & Phone</th>
-                <th className="px-4 py-3.5">Location</th>
-                <th className="px-4 py-3.5">Business Type</th>
-                <th className="px-4 py-3.5">Capacity</th>
-                <th className="px-4 py-3.5">Lead Status</th>
-                <th className="px-4 py-3.5">Assigned Agent</th>
-                <th className="px-4 py-3.5 text-center">Quick Call / WA</th>
-                <th className="px-4 py-3.5">Last Message</th>
-                <th className="px-4 py-3.5 text-right">Actions</th>
+                <th className="px-4 py-3.5 bg-muted/95">Customer & Phone</th>
+                <th className="px-4 py-3.5 bg-muted/95">Location</th>
+                <th className="px-4 py-3.5 bg-muted/95">Business Type</th>
+                <th className="px-4 py-3.5 bg-muted/95">Capacity</th>
+                <th className="px-4 py-3.5 bg-muted/95">Lead Status</th>
+                <th className="px-4 py-3.5 bg-muted/95">Assigned Agent</th>
+                <th className="px-4 py-3.5 text-center bg-muted/95">Quick Call / WA</th>
+                <th className="px-4 py-3.5 bg-muted/95">Last Message</th>
+                <th className="px-4 py-3.5 text-right bg-muted/95">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
