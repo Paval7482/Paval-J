@@ -243,28 +243,16 @@ export function renderLeadTemplate(
 
 export const DEFAULT_SALES_EXECUTIVES: SalesExecutive[] = [
   {
-    id: "exec-karthick",
-    name: "KARTHICK",
-    tamilName: "கார்த்திக்",
-    phone: "919994440905",
-    profile_id: "85f11697-ecc9-4447-ab69-8296421f144a",
-    user_id: "944ed513-3b24-4daf-a159-66b37b63a967",
+    id: "exec-subash",
+    name: "SUBASH",
+    tamilName: "சுபாஷ்",
+    phone: "919384225223",
+    profile_id: "7467ba31-21e8-4983-b475-c7a273486411",
+    user_id: "b8db6f80-377c-41b9-bc79-458ed7733230",
     active: true,
     role: "Sales Executive",
-    languages: ["ta", "hi", "en"],
+    languages: ["ta", "ml", "en"],
     priority: 1,
-  },
-  {
-    id: "exec-bala",
-    name: "BALA",
-    tamilName: "பாலா",
-    phone: "918925964469",
-    profile_id: "1c245b47-b1d2-4de4-a717-03ff249a308d",
-    user_id: "35760e9c-b82a-40d0-a6ee-ca1804d72a90",
-    active: true,
-    role: "Sales Executive",
-    languages: ["ta", "kn", "en"],
-    priority: 2,
   },
   {
     id: "exec-satheesh",
@@ -276,25 +264,37 @@ export const DEFAULT_SALES_EXECUTIVES: SalesExecutive[] = [
     active: true,
     role: "Sales Executive",
     languages: ["ta", "en"],
+    priority: 2,
+  },
+  {
+    id: "exec-bala",
+    name: "BALA",
+    tamilName: "பாலா",
+    phone: "919345232209",
+    profile_id: "1c245b47-b1d2-4de4-a717-03ff249a308d",
+    user_id: "35760e9c-b82a-40d0-a6ee-ca1804d72a90",
+    active: true,
+    role: "Sales Executive",
+    languages: ["ta", "kn", "en"],
     priority: 3,
   },
   {
-    id: "exec-subash",
-    name: "SUBASH",
-    tamilName: "சுபாஷ்",
-    phone: "919384225223",
-    profile_id: "7467ba31-21e8-4983-b475-c7a273486411",
-    user_id: "b8db6f80-377c-41b9-bc79-458ed7733230",
+    id: "exec-nallakaman",
+    name: "NALLAKAMAN",
+    tamilName: "நல்லகாமன்",
+    phone: "918925865837",
+    profile_id: "012ae00b-7f53-4c82-b5e9-fbed4ffb8c6d",
+    user_id: "bc6a28a6-7f3c-4ba2-974e-072b192e6c02",
     active: true,
     role: "Sales Executive",
-    languages: ["ta", "ml", "en"],
+    languages: ["ta", "hi", "en"],
     priority: 4,
   },
   {
     id: "exec-baskar",
     name: "BASKAR",
     tamilName: "பாஸ்கர்",
-    phone: "918925964470",
+    phone: "919043978194",
     profile_id: "8b6f940b-e148-4261-a300-af35e8426bf2",
     user_id: "a909751b-7022-4e47-aaed-c7cfc5acd526",
     active: true,
@@ -303,12 +303,12 @@ export const DEFAULT_SALES_EXECUTIVES: SalesExecutive[] = [
     priority: 5,
   },
   {
-    id: "exec-nallakaman",
-    name: "NALLAKAMAN",
-    tamilName: "நல்லகாமன்",
-    phone: "918925965837",
-    profile_id: "012ae00b-7f53-4c82-b5e9-fbed4ffb8c6d",
-    user_id: "bc6a28a6-7f3c-4ba2-974e-072b192e6c02",
+    id: "exec-karthick",
+    name: "KARTHICK",
+    tamilName: "கார்த்திக்",
+    phone: "917603830507",
+    profile_id: "85f11697-ecc9-4447-ab69-8296421f144a",
+    user_id: "944ed513-3b24-4daf-a159-66b37b63a967",
     active: true,
     role: "Sales Executive",
     languages: ["ta", "hi", "en"],
@@ -319,7 +319,19 @@ export const DEFAULT_SALES_EXECUTIVES: SalesExecutive[] = [
 export const DEFAULT_ADMIN_RECIPIENTS: AdminRecipient[] = [
   {
     id: "admin-md-sir",
-    name: "MD Sir",
+    name: "MD",
+    phone: "917010469614",
+    active: true,
+  },
+  {
+    id: "admin-gm-mam",
+    name: "GM",
+    phone: "916382624058",
+    active: true,
+  },
+  {
+    id: "admin-agm-sir",
+    name: "AGM",
     phone: "919994440905",
     active: true,
   },
@@ -685,6 +697,12 @@ export async function sendLeadAlerts({
   }
 
   const cleanCustomerPhone = customerPhone.replace(/\D/g, "");
+  const formattedCustomerPhone = cleanCustomerPhone.startsWith("91") && cleanCustomerPhone.length === 12
+    ? `+${cleanCustomerPhone}`
+    : cleanCustomerPhone.length === 10
+    ? `+91${cleanCustomerPhone}`
+    : `+${cleanCustomerPhone}`;
+
   const nowStr = new Date().toLocaleTimeString("en-IN", {
     timeZone: "Asia/Kolkata",
     hour: "2-digit",
@@ -709,7 +727,7 @@ export async function sendLeadAlerts({
     quick_call_link: `https://wa.me/${cleanCustomerPhone}`,
   };
 
-  // 1. Management Alerts to All Active Admin Recipients
+  // 1. Management Alerts to All Active Admin Recipients (STRICTLY sli_mgmt_lead_summary only)
   if (config.notifyAdmin) {
     const activeAdmins = (config.adminRecipients || DEFAULT_ADMIN_RECIPIENTS).filter(
       (a) => a.active !== false && a.phone
@@ -723,7 +741,7 @@ export async function sendLeadAlerts({
       try {
         let adminTmplDelivered = false;
         try {
-          // Use officially approved Meta Management Template
+          // Use officially approved Meta Management Template sli_mgmt_lead_summary
           await sendTemplateMessage({
             phoneNumberId,
             accessToken,
@@ -732,7 +750,7 @@ export async function sendLeadAlerts({
             language: "en_US",
             params: [
               customerName || "New Lead",
-              cleanCustomerPhone,
+              formattedCustomerPhone,
               requirement || "Murukku Machine",
               location || "Tamil Nadu",
               `${assignedExec.name} (+${assignedExec.phone.replace(/\D/g, "")})`,
@@ -769,7 +787,7 @@ export async function sendLeadAlerts({
     }
   }
 
-  // 2. Bilingual Urgent Action Alert to Assigned Executive
+  // 2. Bilingual Urgent Action Alert to Assigned Executive (STRICTLY Sales Executive Only)
   if (
     config.notifyExecutive &&
     assignedExec.phone &&
@@ -781,12 +799,6 @@ export async function sendLeadAlerts({
 
     try {
       // First try approved Meta Utility template (Delivers 24/7 without needing recipient to send 'HI')
-      const formattedCustomerPhone = cleanCustomerPhone.startsWith("91")
-        ? `+${cleanCustomerPhone}`
-        : cleanCustomerPhone.length === 10
-        ? `+91${cleanCustomerPhone}`
-        : `+${cleanCustomerPhone}`;
-
       let execTmplDelivered = false;
       try {
         await sendTemplateMessage({
@@ -821,7 +833,7 @@ export async function sendLeadAlerts({
             language: "en_US",
             params: [
               customerName || "New Lead",
-              cleanCustomerPhone,
+              formattedCustomerPhone,
               requirement || "Murukku Machine",
               location || "Tamil Nadu",
               nowStr,

@@ -246,7 +246,7 @@ export function InboxTableView({
   const unreadCount = baseConvs.reduce((acc, c) => acc + (c.unread_count || 0), 0);
 
   return (
-    <div className="flex flex-col gap-5 p-4 sm:p-6 overflow-y-auto h-full">
+    <div className="flex flex-col gap-4 p-4 sm:p-6 h-full min-h-0 overflow-hidden">
       {/* Top Header & Refresh */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -391,8 +391,8 @@ export function InboxTableView({
       </div>
 
       {/* Main Table Matching MyTelly Portal UI */}
-      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden flex flex-col">
-        <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] sm:max-h-[calc(100vh-280px)] [scrollbar-width:thin]">
+      <div className="flex-1 min-h-0 rounded-xl border border-border bg-card shadow-sm overflow-hidden flex flex-col">
+        <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto [scrollbar-width:thin]">
           <table className="w-full text-left text-sm relative">
             <thead className="sticky top-0 z-20 border-b border-border bg-muted/95 backdrop-blur-md text-xs uppercase font-semibold text-muted-foreground shadow-xs">
               <tr>

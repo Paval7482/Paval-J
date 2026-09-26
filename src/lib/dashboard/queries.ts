@@ -436,7 +436,7 @@ export async function loadExecutiveLeadStats(db: DB): Promise<ExecutiveLeadStats
 
   if (executives.length === 0) {
     executives = [
-      { id: 'exec-karthick', name: 'KARTHICK', tamilName: 'கார்த்திக்', phone: '919994440905', active: true, languages: ['ta', 'hi', 'en'] },
+      { id: 'exec-karthick', name: 'KARTHICK', tamilName: 'கார்த்திக்', phone: '917603830507', active: true, languages: ['ta', 'hi', 'en'] },
       { id: 'exec-bala', name: 'BALA', tamilName: 'பாலா', phone: '918925964469', active: true, languages: ['ta', 'kn', 'en'] },
       { id: 'exec-satheesh', name: 'SATHEESH', tamilName: 'சதீஷ்', phone: '919786390479', active: true, languages: ['ta', 'en'] },
       { id: 'exec-subash', name: 'SUBASH', tamilName: 'சுபாஷ்', phone: '919384225223', active: true, languages: ['ta', 'ml', 'en'] },
