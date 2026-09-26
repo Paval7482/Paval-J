@@ -301,33 +301,39 @@ export async function POST(req: Request) {
       let errorDetails = "";
 
       // 1. Try Meta Template en_US
+      const formattedCustomerPhone = testLead.customerPhone.startsWith("91")
+        ? `+${testLead.customerPhone}`
+        : testLead.customerPhone.length === 10
+        ? `+91${testLead.customerPhone}`
+        : `+${testLead.customerPhone}`;
+
       try {
         await sendTemplateMessage({
           phoneNumberId: wabaConfig.phone_number_id,
           accessToken,
           to: cleanPhone,
-          templateName: "sli_sales_lead_alert",
+          templateName: "sli_sales_lead_alert_v2",
           language: "en_US",
           params: [
             testLead.customerName,
-            testLead.customerPhone,
+            formattedCustomerPhone,
             testLead.requirement,
             testLead.location,
             nowStr,
             String(config.slaMinutes || 5),
           ],
         });
-        sentVia = "Approved Meta Utility Template (24/7 Delivery)";
+        sentVia = "Approved Meta Utility Template (sli_sales_lead_alert_v2)";
       } catch (tmplErr1: any) {
-        console.warn(`[Ping] en_US template failed for ${cleanPhone}:`, tmplErr1.message);
-        // 2. Try Meta Template en
+        console.warn(`[Ping] sli_sales_lead_alert_v2 template failed for ${cleanPhone}:`, tmplErr1.message);
+        // 2. Try Meta Template v1
         try {
           await sendTemplateMessage({
             phoneNumberId: wabaConfig.phone_number_id,
             accessToken,
             to: cleanPhone,
             templateName: "sli_sales_lead_alert",
-            language: "en",
+            language: "en_US",
             params: [
               testLead.customerName,
               testLead.customerPhone,
@@ -337,9 +343,9 @@ export async function POST(req: Request) {
               String(config.slaMinutes || 5),
             ],
           });
-          sentVia = "Approved Meta Utility Template (en)";
+          sentVia = "Approved Meta Utility Template (v1 fallback)";
         } catch (tmplErr2: any) {
-          console.warn(`[Ping] en template failed for ${cleanPhone}:`, tmplErr2.message);
+          console.warn(`[Ping] v1 template failed for ${cleanPhone}:`, tmplErr2.message);
           errorDetails = tmplErr2.message || tmplErr1.message;
           // 3. Fallback to freeform text message
           try {
@@ -387,14 +393,14 @@ export async function POST(req: Request) {
           phoneNumberId: wabaConfig.phone_number_id,
           accessToken,
           to: cleanPhone,
-          templateName: "sli_sales_lead_alert",
+          templateName: "sli_mgmt_lead_summary",
           language: "en_US",
           params: [
             testLead.customerName,
             testLead.customerPhone,
             testLead.requirement,
             testLead.location,
-            nowStr,
+            "Satheesh (+919786390479)",
             String(config.slaMinutes || 5),
           ],
         });

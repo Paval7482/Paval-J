@@ -781,17 +781,23 @@ export async function sendLeadAlerts({
 
     try {
       // First try approved Meta Utility template (Delivers 24/7 without needing recipient to send 'HI')
+      const formattedCustomerPhone = cleanCustomerPhone.startsWith("91")
+        ? `+${cleanCustomerPhone}`
+        : cleanCustomerPhone.length === 10
+        ? `+91${cleanCustomerPhone}`
+        : `+${cleanCustomerPhone}`;
+
       let execTmplDelivered = false;
       try {
         await sendTemplateMessage({
           phoneNumberId,
           accessToken,
           to: cleanExecPhone,
-          templateName: "sli_sales_lead_alert",
+          templateName: "sli_sales_lead_alert_v2",
           language: "en_US",
           params: [
             customerName || "New Lead",
-            cleanCustomerPhone,
+            formattedCustomerPhone,
             requirement || "Murukku Machine",
             location || "Tamil Nadu",
             nowStr,
@@ -800,11 +806,11 @@ export async function sendLeadAlerts({
         });
         execTmplDelivered = true;
         console.info(
-          `[LeadAlert] Urgent lead alert delivered via approved Meta Template sli_sales_lead_alert (en_US) to ${assignedExec.name} (${cleanExecPhone})`
+          `[LeadAlert] Urgent lead alert delivered via approved Meta Template sli_sales_lead_alert_v2 (en_US) to ${assignedExec.name} (${cleanExecPhone})`
         );
       } catch (templateErr1: any) {
         console.warn(
-          `[LeadAlert] Meta Template (en_US) failed for executive ${assignedExec.name}: ${templateErr1.message}, trying 'en'...`
+          `[LeadAlert] Meta Template sli_sales_lead_alert_v2 (en_US) failed for executive ${assignedExec.name}: ${templateErr1.message}, trying fallback to v1...`
         );
         try {
           await sendTemplateMessage({
@@ -812,7 +818,7 @@ export async function sendLeadAlerts({
             accessToken,
             to: cleanExecPhone,
             templateName: "sli_sales_lead_alert",
-            language: "en",
+            language: "en_US",
             params: [
               customerName || "New Lead",
               cleanCustomerPhone,
@@ -824,7 +830,7 @@ export async function sendLeadAlerts({
           });
           execTmplDelivered = true;
           console.info(
-            `[LeadAlert] Urgent lead alert delivered via approved Meta Template sli_sales_lead_alert (en) to ${assignedExec.name} (${cleanExecPhone})`
+            `[LeadAlert] Urgent lead alert delivered via approved Meta Template sli_sales_lead_alert (en_US) to ${assignedExec.name} (${cleanExecPhone})`
           );
         } catch (templateErr2: any) {
           console.warn(
