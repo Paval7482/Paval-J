@@ -97,7 +97,6 @@ const navItems: NavItem[] = [
   { href: "/inbox", labelKey: "inbox", icon: MessageSquare },
   { href: "/calls", labelKey: "calls", icon: PhoneCall },
   { href: "/telecrm-calls", labelKey: "telecrmCalls", icon: PhoneCall },
-  { href: "/mobile-app", labelKey: "mobileApp", icon: Smartphone },
   { href: "/meta-leads", labelKey: "metaLeads", icon: Radio },
   { href: "/notifications", labelKey: "notifications", icon: Bell },
   { href: "/contacts", labelKey: "contacts", icon: Users },
