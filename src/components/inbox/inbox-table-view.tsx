@@ -20,6 +20,9 @@ import {
   Edit3,
   ExternalLink,
   ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
   TrendingUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -69,6 +72,10 @@ export function InboxTableView({
   const [agentFilter, setAgentFilter] = useState<string>('all');
   const [businessFilter, setBusinessFilter] = useState<string>('all');
   const [members, setMembers] = useState<TeamMember[]>([]);
+
+  // Pagination: 10 leads per page
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Selected contact for profile modal
   const [profileModalOpen, setProfileModalOpen] = useState(false);
@@ -225,6 +232,40 @@ export function InboxTableView({
       return true;
     });
   }, [conversations, profilesMap, search, statusFilter, agentFilter, businessFilter, isAdminOrOwner, user]);
+
+  // Reset page to 1 when filters or search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, agentFilter, businessFilter]);
+
+  // Paginated records (10 leads per page by default)
+  const totalItems = filteredConversations.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const effectivePage = Math.min(currentPage, totalPages);
+
+  const paginatedConversations = useMemo(() => {
+    const start = (effectivePage - 1) * pageSize;
+    return filteredConversations.slice(start, start + pageSize);
+  }, [filteredConversations, effectivePage, pageSize]);
+
+  const startRecord = totalItems === 0 ? 0 : (effectivePage - 1) * pageSize + 1;
+  const endRecord = Math.min(totalItems, effectivePage * pageSize);
+
+  const pageNumbers = useMemo(() => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (effectivePage <= 4) {
+        pages.push(1, 2, 3, 4, 5, '...', totalPages);
+      } else if (effectivePage >= totalPages - 3) {
+        pages.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, '...', effectivePage - 1, effectivePage, effectivePage + 1, '...', totalPages);
+      }
+    }
+    return pages;
+  }, [totalPages, effectivePage]);
 
   // Member map for quick name resolution
   const memberNameMap = useMemo(() => {
@@ -423,7 +464,7 @@ export function InboxTableView({
                   </td>
                 </tr>
               ) : (
-                filteredConversations.map((conv) => {
+                paginatedConversations.map((conv) => {
                   const contact = conv.contact;
                   const profile = contact ? profilesMap[contact.id] : null;
                   const cleanPhone = contact?.phone?.replace(/\D/g, '') || '';
@@ -626,6 +667,105 @@ export function InboxTableView({
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Pagination Bar */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-2.5 border-t border-border bg-muted/40 text-xs text-muted-foreground shrink-0">
+          <div className="flex items-center gap-2">
+            <span>
+              Showing <strong className="text-foreground font-semibold">{startRecord}</strong> to{' '}
+              <strong className="text-foreground font-semibold">{endRecord}</strong> of{' '}
+              <strong className="text-foreground font-semibold">{totalItems}</strong> leads
+            </span>
+
+            <div className="flex items-center gap-1.5 ml-2">
+              <span className="text-[11px]">Per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                aria-label="Rows per page"
+                className="h-6 rounded border border-input bg-background px-1.5 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Page Navigation Controls */}
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(1)}
+              disabled={effectivePage <= 1}
+              className="h-7 w-7 p-0 cursor-pointer disabled:cursor-not-allowed"
+              title="First Page"
+            >
+              <ChevronsLeft className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={effectivePage <= 1}
+              className="h-7 w-7 p-0 cursor-pointer disabled:cursor-not-allowed"
+              title="Previous Page"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+
+            {/* Page Numbers */}
+            <div className="flex items-center gap-1 mx-1">
+              {pageNumbers.map((p, idx) =>
+                p === '...' ? (
+                  <span key={`ellipsis-${idx}`} className="px-1 text-muted-foreground font-bold">
+                    ...
+                  </span>
+                ) : (
+                  <Button
+                    key={`page-${p}`}
+                    variant={effectivePage === p ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setCurrentPage(Number(p))}
+                    className={`h-7 min-w-[28px] px-2 text-xs font-semibold cursor-pointer ${
+                      effectivePage === p
+                        ? 'bg-primary text-primary-foreground font-bold'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {p}
+                  </Button>
+                )
+              )}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={effectivePage >= totalPages}
+              className="h-7 w-7 p-0 cursor-pointer disabled:cursor-not-allowed"
+              title="Next Page"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={effectivePage >= totalPages}
+              className="h-7 w-7 p-0 cursor-pointer disabled:cursor-not-allowed"
+              title="Last Page"
+            >
+              <ChevronsRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       </div>
 
