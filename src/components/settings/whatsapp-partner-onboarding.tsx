@@ -77,8 +77,8 @@ export function WhatsAppPartnerOnboarding({
     setActiveStepIndex(0);
     updateStepStatus(0, 'in_progress');
 
-    // Default partner app id or custom
-    const partnerAppId = process.env.NEXT_PUBLIC_META_APP_ID || '181612405883790';
+    // Real Sri Lakshmi Industries Meta App ID
+    const partnerAppId = process.env.NEXT_PUBLIC_META_APP_ID || '8525869847463682';
     const redirectUri = encodeURIComponent(
       typeof window !== 'undefined' ? `${window.location.origin}/api/whatsapp/embedded-signup` : ''
     );
