@@ -40,6 +40,7 @@ type ResetReason = 'token_corrupted' | 'meta_api_error' | null;
 import { QRConnectModal } from '@/components/whatsapp-bridge/qr-connect-modal';
 import { Smartphone, QrCode, Sparkles } from 'lucide-react';
 import { MetaEmbeddedSignup } from './meta-embedded-signup';
+import { WhatsAppPartnerOnboarding } from './whatsapp-partner-onboarding';
 
 export function WhatsAppConfig() {
   const t = useTranslations('Settings.whatsapp');
@@ -59,6 +60,7 @@ export function WhatsAppConfig() {
   } = useAuth();
 
   const [loading, setLoading] = useState(true);
+  const [onboardingMode, setOnboardingMode] = useState<'pipeline' | 'manual'>('pipeline');
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -518,13 +520,37 @@ export function WhatsAppConfig() {
           userId={user?.id}
         />
 
-        {/* 🚀 Meta WhatsApp 1-Click Fast Connect */}
-        <MetaEmbeddedSignup
-          isConnected={connectionStatus === 'connected'}
-          onSuccess={() => {
-            if (accountId) fetchConfig(accountId);
-          }}
-        />
+        {/* 🌟 Meta Tech Partner 8-Step Visual Pipeline */}
+        {onboardingMode === 'pipeline' ? (
+          <WhatsAppPartnerOnboarding
+            isConnected={connectionStatus === 'connected'}
+            currentConfig={config}
+            onSuccess={() => {
+              if (accountId) fetchConfig(accountId);
+            }}
+            onSwitchToManual={() => setOnboardingMode('manual')}
+          />
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground">Manual & Token Connection Mode</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setOnboardingMode('pipeline')}
+                className="text-xs h-7 gap-1"
+              >
+                Switch to Partner Pipeline
+              </Button>
+            </div>
+            <MetaEmbeddedSignup
+              isConnected={connectionStatus === 'connected'}
+              onSuccess={() => {
+                if (accountId) fetchConfig(accountId);
+              }}
+            />
+          </div>
+        )}
 
         {/* Connection Status */}
         <Alert className="bg-card border-border">
