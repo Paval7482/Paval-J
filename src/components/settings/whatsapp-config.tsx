@@ -39,6 +39,7 @@ type ResetReason = 'token_corrupted' | 'meta_api_error' | null;
 
 import { QRConnectModal } from '@/components/whatsapp-bridge/qr-connect-modal';
 import { Smartphone, QrCode, Sparkles } from 'lucide-react';
+import { MetaEmbeddedSignup } from './meta-embedded-signup';
 
 export function WhatsAppConfig() {
   const t = useTranslations('Settings.whatsapp');
@@ -515,6 +516,14 @@ export function WhatsAppConfig() {
           open={qrModalOpen}
           onOpenChange={setQrModalOpen}
           userId={user?.id}
+        />
+
+        {/* 🚀 Meta WhatsApp 1-Click Fast Connect */}
+        <MetaEmbeddedSignup
+          isConnected={connectionStatus === 'connected'}
+          onSuccess={() => {
+            if (accountId) fetchConfig(accountId);
+          }}
         />
 
         {/* Connection Status */}
