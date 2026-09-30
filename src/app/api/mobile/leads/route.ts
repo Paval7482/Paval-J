@@ -7,42 +7,66 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const limit = parseInt(url.searchParams.get("limit") || "100", 10);
     const search = url.searchParams.get("search") || "";
-    const agentId = url.searchParams.get("agent_id") || "";
-    const agentName = url.searchParams.get("agent_name") || "";
 
     // 1. Fetch conversations to identify WhatsApp leads
     const { data: convs } = await admin
       .from("conversations")
-      .select("contact_id, phone")
-      .limit(500);
+      .select("contact_id")
+      .limit(1000);
 
-    const whatsappPhoneSet = new Set<string>();
     const whatsappContactIdSet = new Set<string>();
     (convs || []).forEach((c) => {
       if (c.contact_id) whatsappContactIdSet.add(c.contact_id);
-      if (c.phone) {
-        const digits = c.phone.replace(/\D/g, "").slice(-10);
-        if (digits) whatsappPhoneSet.add(digits);
+    });
+
+    // 2. Fetch TeleCRM/MyTelly contact notes
+    const { data: telecrmNotes } = await admin
+      .from("contact_notes")
+      .select("id, contact_id, note_text, created_at, contacts(id, phone, name)")
+      .ilike("note_text", "%TeleCRM%")
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    const mytellyContactIdSet = new Set<string>();
+    const mytellyPhoneMap = new Map<string, any>();
+
+    (telecrmNotes || []).forEach((n: any) => {
+      if (n.contact_id) mytellyContactIdSet.add(n.contact_id);
+      const phone = n.contacts?.phone || "";
+      const digits = phone.replace(/\D/g, "").slice(-10);
+      if (digits && !mytellyPhoneMap.has(digits)) {
+        mytellyPhoneMap.set(digits, {
+          contact_id: n.contact_id,
+          name: n.contacts?.name || `Customer ${digits.slice(-4)}`,
+          phone: phone || `+91${digits}`,
+          notes: n.note_text,
+          created_at: n.created_at,
+        });
       }
     });
 
-    // 2. Fetch MyTelly Call Logs
+    // 3. Fetch call_logs
     const { data: allCallLogs } = await admin
       .from("call_logs")
       .select("id, customer_number, virtual_number, agent_name, call_duration, call_status, call_date, recording_url, outcome, notes, created_at")
       .order("created_at", { ascending: false })
       .limit(300);
 
-    const mytellyPhoneMap = new Map<string, any>();
     (allCallLogs || []).forEach((cl) => {
       const num = cl.customer_number || "";
       const digits = num.replace(/\D/g, "").slice(-10);
       if (digits && !mytellyPhoneMap.has(digits)) {
-        mytellyPhoneMap.set(digits, cl);
+        mytellyPhoneMap.set(digits, {
+          contact_id: null,
+          name: `My Telly Caller (${cl.agent_name || digits.slice(-4)})`,
+          phone: cl.customer_number || `+91${digits}`,
+          notes: `IVR Call handled by ${cl.agent_name || "Executive"}. Duration: ${cl.call_duration || "00:30"}`,
+          created_at: cl.created_at || cl.call_date,
+        });
       }
     });
 
-    // 3. Fetch contacts
+    // 4. Fetch contacts
     let query = admin
       .from("contacts")
       .select("id, name, phone, email, company, created_at, updated_at")
@@ -65,48 +89,46 @@ export async function GET(req: NextRequest) {
       const digits10 = cleanPhone.slice(-10);
       if (digits10) contactPhoneSet.add(digits10);
 
-      // Resolve Accurate Source
+      // Determine Source strictly
       let source = "Direct Call";
-      if (whatsappContactIdSet.has(c.id) || (digits10 && whatsappPhoneSet.has(digits10))) {
+      if (whatsappContactIdSet.has(c.id)) {
         source = "WhatsApp";
+      } else if (mytellyContactIdSet.has(c.id) || (digits10 && mytellyPhoneMap.has(digits10))) {
+        source = "My Telly";
       } else if (c.email && c.email.includes("@")) {
         source = "Meta Ads";
-      } else if (digits10 && mytellyPhoneMap.has(digits10)) {
-        source = "My Telly";
       }
 
-      const call = digits10 ? mytellyPhoneMap.get(digits10) : null;
-      const isFollowUp = call?.outcome === "callback" || call?.outcome === "interested";
+      const mytellyData = digits10 ? mytellyPhoneMap.get(digits10) : null;
+      const notes = mytellyData?.notes || `Lead from ${source}`;
 
       return {
         id: c.id,
         name: c.name || "Customer " + (cleanPhone ? cleanPhone.slice(-4) : ""),
         phone: c.phone || "",
-        stage: isFollowUp ? "follow_up" : "lead",
+        stage: "lead",
         source: source,
         company: c.company || "",
         created_at: c.created_at,
-        notes: call?.notes || "Lead from " + source,
-        followUpDate: isFollowUp ? "Today, 5:00 PM" : null,
+        notes: notes,
+        followUpDate: null,
       };
     });
 
-    // 4. Merge MyTelly IVR Callers who might not be in contacts table yet (e.g. +919080519175)
+    // 5. Merge any MyTelly calls/notes not in contacts table
     const mytellyExtraLeads: any[] = [];
-    (allCallLogs || []).forEach((cl) => {
-      const num = cl.customer_number || "";
-      const digits = num.replace(/\D/g, "").slice(-10);
-      if (digits && !contactPhoneSet.has(digits)) {
+    mytellyPhoneMap.forEach((val, digits) => {
+      if (!contactPhoneSet.has(digits)) {
         contactPhoneSet.add(digits);
         mytellyExtraLeads.push({
-          id: "MYTELLY-" + (cl.id || digits),
-          name: "My Telly Caller (" + (cl.agent_name ? cl.agent_name + " attended" : digits.slice(-4)) + ")",
-          phone: cl.customer_number || `+91${digits}`,
+          id: "MYTELLY-" + digits,
+          name: val.name || `My Telly Caller (${digits.slice(-4)})`,
+          phone: val.phone,
           stage: "lead",
           source: "My Telly",
-          company: "MyTelly IVR Call",
-          created_at: cl.created_at || cl.call_date,
-          notes: `IVR Call handled by ${cl.agent_name || "Executive"}. Duration: ${cl.call_duration || "00:30"}`,
+          company: "My Telly Telephony",
+          created_at: val.created_at,
+          notes: val.notes || "My Telly IVR Call",
           followUpDate: null,
         });
       }

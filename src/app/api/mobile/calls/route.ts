@@ -8,43 +8,70 @@ export async function GET(req: NextRequest) {
 
     const agentName = url.searchParams.get("agent") || "";
     const isTeamLead = url.searchParams.get("teamLead") === "true";
-    const date = url.searchParams.get("date") || "";
 
-    let query = admin
+    // 1. Fetch from call_logs table
+    const { data: rawCallLogs } = await admin
       .from("call_logs")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(200);
 
-    if (!isTeamLead && agentName && agentName !== "all") {
-      query = query.ilike("agent_name", `%${agentName}%`);
-    }
+    // 2. Fetch TeleCRM/MyTelly contact_notes with audio recordings
+    const { data: notes } = await admin
+      .from("contact_notes")
+      .select("id, contact_id, note_text, created_at, contacts(phone, name)")
+      .ilike("note_text", "%TeleCRM%")
+      .order("created_at", { ascending: false })
+      .limit(200);
 
-    if (date) {
-      query = query.gte("call_date", `${date}T00:00:00Z`).lte("call_date", `${date}T23:59:59Z`);
-    }
+    const noteLogs = (notes || []).map((n: any) => {
+      const text = n.note_text || "";
+      const isIncoming = text.toLowerCase().includes("incoming");
+      const callType = isIncoming ? "inbound" : "outbound";
+      const isMissed = text.toLowerCase().includes("missed") || text.toLowerCase().includes("no answer");
 
-    const { data: logs, error } = await query;
+      const agentMatch = text.match(/(?:👤\s*Executive|Executive):\s*([^|\n]+)/);
+      const durationMatch = text.match(/(?:⏱️\s*Duration|Duration):\s*([^|\n]+)/);
+      const audioMatch = text.match(/(?:🎙️\s*Audio Recording|Audio|Recording):\s*([^|\n]+)/);
+      const timeMatch = text.match(/(?:📅\s*Time|Time):\s*([^|\n]+)/);
 
-    if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    }
+      let recording_url: string | null = null;
+      if (audioMatch) {
+        const rawAudio = audioMatch[1].trim();
+        if (rawAudio && rawAudio !== "[object Object]" && !rawAudio.toLowerCase().includes("invalid")) {
+          recording_url = rawAudio;
+        }
+      }
 
-    // Compute basic today stats
-    const today = new Date().toISOString().split("T")[0];
-    const todayLogs = (logs || []).filter((l) => (l.call_date || l.created_at || "").startsWith(today));
-    const totalCalls = todayLogs.length;
-    const connectedCalls = todayLogs.filter((l) => !String(l.call_status || "").toLowerCase().includes("missed")).length;
-    const missedCalls = totalCalls - connectedCalls;
+      return {
+        id: n.id,
+        customer_number: n.contacts?.phone || "",
+        agent_name: agentMatch ? agentMatch[1].trim() : "Sales Executive",
+        call_type: callType,
+        call_status: isMissed ? "missed" : "connected",
+        call_duration: durationMatch ? durationMatch[1].trim() : "00:30",
+        recording_url: recording_url,
+        call_date: timeMatch ? timeMatch[1].trim() : n.created_at,
+        created_at: n.created_at,
+        outcome: isMissed ? "missed_call" : "connected",
+        notes: text,
+      };
+    });
+
+    const combined = [...(rawCallLogs || []), ...noteLogs];
+    
+    // Deduplicate by phone + created_at
+    const seen = new Set<string>();
+    const uniqueLogs = combined.filter((l) => {
+      const key = `${l.customer_number}_${l.created_at?.slice(0, 16)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 
     return NextResponse.json({
       ok: true,
-      logs: logs || [],
-      todayStats: {
-        totalCalls,
-        connectedCalls,
-        missedCalls,
-      },
+      logs: uniqueLogs,
     });
   } catch (err: any) {
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
