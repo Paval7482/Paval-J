@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     // 1. Check contacts table
     const { data: contact } = await admin
       .from("contacts")
-      .select("id, name, phone, assigned_to, stage")
+      .select("id, name, phone, user_id")
       .ilike("phone", `%${last10}`)
       .limit(1)
       .maybeSingle();
@@ -27,8 +27,8 @@ export async function GET(req: NextRequest) {
         isLead: true,
         contactId: contact.id,
         contactName: contact.name || "Customer",
-        assignedTo: contact.assigned_to,
-        stage: contact.stage,
+        assignedTo: contact.user_id,
+        stage: "lead",
       });
     }
 
