@@ -43,14 +43,8 @@ export async function GET(
     }
 
     // 3. Parallel queries
-    const [profile, callsRes, conversationsRes, notesRes, dealsRes] = await Promise.all([
+    const [profile, conversationsRes, notesRes, dealsRes] = await Promise.all([
       getCustomerProfile(admin, contactId),
-      admin
-        .from('call_logs')
-        .select('*')
-        .or(`customer_number.ilike.%${customerPhone}%,customer_number.ilike.%${phoneClean}%`)
-        .order('created_at', { ascending: false })
-        .limit(50),
       admin
         .from('conversations')
         .select('id, status, updated_at')
@@ -69,7 +63,7 @@ export async function GET(
         .limit(1),
     ]);
 
-    // 4. Fetch all messages from all conversations associated with this customer
+    // 4. Fetch all messages
     let messages: any[] = [];
     const conversationIds = (conversationsRes.data || []).map((c) => c.id);
     if (conversationIds.length > 0) {
@@ -82,7 +76,46 @@ export async function GET(
       messages = msgsData || [];
     }
 
-    // 4. Determine Source
+    // 5. Parse calls from contact_notes
+    const callsFromNotes: any[] = [];
+    (notesRes.data || []).forEach((n: any) => {
+      const text = n.note_text || '';
+      const isCall =
+        text.includes('📞') ||
+        text.includes('📲') ||
+        text.toLowerCase().includes('call status') ||
+        text.toLowerCase().includes('audio recording') ||
+        text.toLowerCase().includes('duration:');
+
+      if (isCall) {
+        const isIncoming = text.toLowerCase().includes('incoming') || text.toLowerCase().includes('inbound');
+        const isMissed = text.toLowerCase().includes('missed') || text.toLowerCase().includes('unanswered');
+        const execMatch = text.match(/(?:👤\s*Executive|Executive):\s*([^|\n]+)/i);
+        const durMatch = text.match(/(?:⏱️\s*Duration|Duration):\s*([^|\n]+)/i);
+        const audioMatch = text.match(/(?:🎙️\s*Audio Recording|Audio Recording|Audio|Recording):\s*([^|\n]+)/i);
+        const timeMatch = text.match(/(?:📅\s*Time|Time):\s*([^|\n]+)/i);
+
+        let audioUrl: string | null = null;
+        if (audioMatch) {
+          const raw = audioMatch[1].trim();
+          if (raw.startsWith('http')) audioUrl = raw;
+        }
+
+        callsFromNotes.push({
+          id: n.id,
+          customer_number: contact.phone || '',
+          agent_name: execMatch ? execMatch[1].trim() : 'Executive',
+          call_type: isIncoming ? 'inbound' : 'outbound',
+          call_status: isMissed ? 'missed' : 'connected',
+          call_duration: durMatch ? durMatch[1].trim() : '01:00',
+          recording_url: audioUrl,
+          call_date: timeMatch ? timeMatch[1].trim() : n.created_at,
+          created_at: n.created_at,
+        });
+      }
+    });
+
+    // 6. Determine Source
     let source = profile?.source || 'Direct Inquiry';
     let sourceCampaign = profile?.sourceCampaign || '';
     let sourceForm = profile?.sourceForm || '';
@@ -99,7 +132,7 @@ export async function GET(
       } else if (/MyTelly|Inbound Call/i.test(text)) {
         source = 'Inbound Phone Call';
       }
-    } else if (callsRes.data && callsRes.data.length > 0) {
+    } else if (callsFromNotes.length > 0) {
       source = 'Inbound Phone Call (MyTelly)';
     } else if (messages.length > 0) {
       source = 'WhatsApp Inquiry';
@@ -115,7 +148,7 @@ export async function GET(
         sourceForm,
         inboundDate: contact.created_at,
       },
-      calls: callsRes.data || [],
+      calls: callsFromNotes,
       messages,
       notes: notesRes.data || [],
       conversationId: conversationsRes.data?.[0]?.id || null,
