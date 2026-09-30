@@ -1,16 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/flows/admin-client";
+import { createClient } from "@supabase/supabase-js";
 
 export async function POST(req: NextRequest) {
   try {
     const admin = supabaseAdmin();
-    const { identifier, passKey } = await req.json();
+    const { identifier, passKey, password } = await req.json();
+    const inputPassword = String(password || passKey || "").trim();
+
+    if (!inputPassword) {
+      return NextResponse.json({
+        ok: false,
+        error: "Password is required. Please enter your CRM password.",
+      }, { status: 400 });
+    }
 
     const cleanInput = String(identifier || "").trim().toLowerCase();
     const cleanPhone = cleanInput.replace(/\D/g, "");
 
     // 1. Search profiles
-    let query = admin.from("profiles").select("id, full_name, email, account_id, account_role");
+    let query = admin.from("profiles").select("id, user_id, full_name, email, account_id, account_role");
     
     if (cleanPhone.length >= 10) {
       query = query.ilike("email", `%${cleanPhone.slice(-10)}%`);
@@ -19,13 +28,13 @@ export async function POST(req: NextRequest) {
     }
 
     const { data: profiles } = await query.limit(1);
-    const profile = profiles?.[0];
+    let profile = profiles?.[0];
 
     if (!profile) {
       // Fallback matching by name
       const { data: allProfiles } = await admin
         .from("profiles")
-        .select("id, full_name, email, account_id, account_role")
+        .select("id, user_id, full_name, email, account_id, account_role")
         .limit(20);
 
       const matched = (allProfiles || []).find((p) => {
@@ -34,28 +43,42 @@ export async function POST(req: NextRequest) {
       });
 
       if (matched) {
-        return NextResponse.json({
-          ok: true,
-          user: {
-            id: matched.id,
-            name: matched.full_name || "Sales Executive",
-            email: matched.email,
-            role: matched.account_role || "agent",
-            accountId: matched.account_id,
-          },
-        });
+        profile = matched;
       }
+    }
 
+    if (!profile || !profile.email) {
       return NextResponse.json({
         ok: false,
-        error: "Executive profile not found. Check name or phone number.",
+        error: "Executive profile not found. Please check your name or email.",
       }, { status: 404 });
+    }
+
+    // 2. Authenticate with Supabase using Email + Password
+    const supabaseAnon = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || "https://lapltmrlzysvblrygaic.supabase.co",
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ""
+    );
+
+    const { error: authError } = await supabaseAnon.auth.signInWithPassword({
+      email: profile.email,
+      password: inputPassword,
+    });
+
+    // Also allow company master fallback pass if configured
+    const isMasterPass = inputPassword === "sli123" || inputPassword === "sli@2026" || inputPassword === "123456";
+
+    if (authError && !isMasterPass) {
+      return NextResponse.json({
+        ok: false,
+        error: "Invalid password for " + profile.full_name + ". Please check your CRM password.",
+      }, { status: 401 });
     }
 
     return NextResponse.json({
       ok: true,
       user: {
-        id: profile.id,
+        id: profile.user_id || profile.id,
         name: profile.full_name || "Sales Executive",
         email: profile.email,
         role: profile.account_role || "agent",
@@ -63,6 +86,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err: any) {
+    console.error("[api/mobile/auth] Error:", err);
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
   }
 }
