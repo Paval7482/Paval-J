@@ -7,6 +7,8 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const limit = parseInt(url.searchParams.get("limit") || "100", 10);
     const search = url.searchParams.get("search") || "";
+    const agentName = (url.searchParams.get("agent_name") || url.searchParams.get("agent") || "").trim();
+    const isAdmin = !agentName || /admin|paval|owner/i.test(agentName);
 
     // 1. Fetch conversations to identify WhatsApp leads
     const { data: convs } = await admin
@@ -31,17 +33,27 @@ export async function GET(req: NextRequest) {
     const mytellyPhoneMap = new Map<string, any>();
 
     (telecrmNotes || []).forEach((n: any) => {
-      if (n.contact_id) mytellyContactIdSet.add(n.contact_id);
-      const phone = n.contacts?.phone || "";
-      const digits = phone.replace(/\D/g, "").slice(-10);
-      if (digits && !mytellyPhoneMap.has(digits)) {
-        mytellyPhoneMap.set(digits, {
-          contact_id: n.contact_id,
-          name: n.contacts?.name || `Customer ${digits.slice(-4)}`,
-          phone: phone || `+91${digits}`,
-          notes: n.note_text,
-          created_at: n.created_at,
-        });
+      const noteText = n.note_text || "";
+      const execMatch = noteText.match(/(?:👤\s*Executive|Executive):\s*([^|\n]+)/i);
+      const noteExec = execMatch ? execMatch[1].trim() : "";
+
+      // Check if matches agent filter
+      const matchesAgent = isAdmin || !noteExec || (agentName && noteExec.toLowerCase().includes(agentName.toLowerCase()));
+
+      if (matchesAgent) {
+        if (n.contact_id) mytellyContactIdSet.add(n.contact_id);
+        const phone = n.contacts?.phone || "";
+        const digits = phone.replace(/\D/g, "").slice(-10);
+        if (digits && !mytellyPhoneMap.has(digits)) {
+          mytellyPhoneMap.set(digits, {
+            contact_id: n.contact_id,
+            name: n.contacts?.name || `Customer ${digits.slice(-4)}`,
+            phone: phone || `+91${digits}`,
+            notes: n.note_text,
+            created_at: n.created_at,
+            executive: noteExec,
+          });
+        }
       }
     });
 
@@ -53,16 +65,22 @@ export async function GET(req: NextRequest) {
       .limit(300);
 
     (allCallLogs || []).forEach((cl) => {
-      const num = cl.customer_number || "";
-      const digits = num.replace(/\D/g, "").slice(-10);
-      if (digits && !mytellyPhoneMap.has(digits)) {
-        mytellyPhoneMap.set(digits, {
-          contact_id: null,
-          name: `My Telly Caller (${cl.agent_name || digits.slice(-4)})`,
-          phone: cl.customer_number || `+91${digits}`,
-          notes: `IVR Call handled by ${cl.agent_name || "Executive"}. Duration: ${cl.call_duration || "00:30"}`,
-          created_at: cl.created_at || cl.call_date,
-        });
+      const callAgent = cl.agent_name || "";
+      const matchesAgent = isAdmin || !callAgent || (agentName && callAgent.toLowerCase().includes(agentName.toLowerCase()));
+
+      if (matchesAgent) {
+        const num = cl.customer_number || "";
+        const digits = num.replace(/\D/g, "").slice(-10);
+        if (digits && !mytellyPhoneMap.has(digits)) {
+          mytellyPhoneMap.set(digits, {
+            contact_id: null,
+            name: `My Telly Caller (${cl.agent_name || digits.slice(-4)})`,
+            phone: cl.customer_number || `+91${digits}`,
+            notes: `IVR Call handled by ${cl.agent_name || "Executive"}. Duration: ${cl.call_duration || "00:30"}`,
+            created_at: cl.created_at || cl.call_date,
+            executive: callAgent,
+          });
+        }
       }
     });
 

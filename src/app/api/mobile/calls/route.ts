@@ -6,15 +6,15 @@ export async function GET(req: NextRequest) {
     const admin = supabaseAdmin();
     const url = new URL(req.url);
 
-    const agentName = url.searchParams.get("agent") || "";
-    const isTeamLead = url.searchParams.get("teamLead") === "true";
+    const agentName = (url.searchParams.get("agent_name") || url.searchParams.get("agent") || "").trim();
+    const isAdmin = !agentName || /admin|paval|owner/i.test(agentName);
 
     // 1. Fetch from call_logs table
     const { data: rawCallLogs } = await admin
       .from("call_logs")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(300);
 
     // 2. Fetch TeleCRM/MyTelly contact_notes with audio recordings
     const { data: notes } = await admin
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
       .select("id, contact_id, note_text, created_at, contacts(phone, name)")
       .or("note_text.ilike.%TeleCRM%,note_text.ilike.%mytelly%,note_text.ilike.%Audio Recording%,note_text.ilike.%Call Status%")
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(300);
 
     const noteLogs = (notes || []).map((n: any) => {
       const text = n.note_text || "";
@@ -30,10 +30,10 @@ export async function GET(req: NextRequest) {
       const callType = isIncoming ? "inbound" : "outbound";
       const isMissed = text.toLowerCase().includes("missed") || text.toLowerCase().includes("no answer");
 
-      const agentMatch = text.match(/(?:👤\s*Executive|Executive):\s*([^|\n]+)/);
-      const durationMatch = text.match(/(?:⏱️\s*Duration|Duration):\s*([^|\n]+)/);
-      const audioMatch = text.match(/(?:🎙️\s*Audio Recording|Audio|Recording):\s*([^|\n]+)/);
-      const timeMatch = text.match(/(?:📅\s*Time|Time):\s*([^|\n]+)/);
+      const agentMatch = text.match(/(?:👤\s*Executive|Executive):\s*([^|\n]+)/i);
+      const durationMatch = text.match(/(?:⏱️\s*Duration|Duration):\s*([^|\n]+)/i);
+      const audioMatch = text.match(/(?:🎙️\s*Audio Recording|Audio|Recording):\s*([^|\n]+)/i);
+      const timeMatch = text.match(/(?:📅\s*Time|Time):\s*([^|\n]+)/i);
 
       let recording_url: string | null = null;
       if (audioMatch) {
@@ -69,9 +69,18 @@ export async function GET(req: NextRequest) {
       return true;
     });
 
+    // Filter by executive if not admin
+    const filteredLogs = isAdmin
+      ? uniqueLogs
+      : uniqueLogs.filter((l) => {
+          const lAgent = (l.agent_name || "").toLowerCase();
+          const target = agentName.toLowerCase();
+          return lAgent.includes(target) || target.includes(lAgent);
+        });
+
     return NextResponse.json({
       ok: true,
-      logs: uniqueLogs,
+      logs: filteredLogs,
     });
   } catch (err: any) {
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 });
