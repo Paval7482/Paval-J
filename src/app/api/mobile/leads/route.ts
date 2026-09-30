@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     const { data: telecrmNotes } = await admin
       .from("contact_notes")
       .select("id, contact_id, note_text, created_at, contacts(id, phone, name)")
-      .ilike("note_text", "%TeleCRM%")
+      .or("note_text.ilike.%TeleCRM%,note_text.ilike.%mytelly%,note_text.ilike.%Audio Recording%,note_text.ilike.%Call Status%")
       .order("created_at", { ascending: false })
       .limit(500);
 
