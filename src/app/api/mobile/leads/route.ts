@@ -10,68 +10,44 @@ export async function GET(req: NextRequest) {
     const agentId = url.searchParams.get("agent_id") || "";
     const agentName = url.searchParams.get("agent_name") || "";
 
-    // 1. Check if executive is admin/owner
-    let isElevated = false;
-    if (agentId) {
-      const { data: profile } = await admin
-        .from("profiles")
-        .select("account_role")
-        .or(`id.eq.${agentId},user_id.eq.${agentId}`)
-        .maybeSingle();
-      if (profile && (profile.account_role === "owner" || profile.account_role === "admin")) {
-        isElevated = true;
+    // 1. Fetch conversations to identify WhatsApp leads
+    const { data: convs } = await admin
+      .from("conversations")
+      .select("contact_id, phone")
+      .limit(500);
+
+    const whatsappPhoneSet = new Set<string>();
+    const whatsappContactIdSet = new Set<string>();
+    (convs || []).forEach((c) => {
+      if (c.contact_id) whatsappContactIdSet.add(c.contact_id);
+      if (c.phone) {
+        const digits = c.phone.replace(/\D/g, "").slice(-10);
+        if (digits) whatsappPhoneSet.add(digits);
       }
-    }
+    });
 
-    let assignedContactIds: string[] | null = null;
+    // 2. Fetch MyTelly Call Logs
+    const { data: allCallLogs } = await admin
+      .from("call_logs")
+      .select("id, customer_number, virtual_number, agent_name, call_duration, call_status, call_date, recording_url, outcome, notes, created_at")
+      .order("created_at", { ascending: false })
+      .limit(300);
 
-    if (agentId && !isElevated) {
-      // Find contacts assigned to this agent in conversations
-      const { data: agentConvs } = await admin
-        .from("conversations")
-        .select("contact_id")
-        .eq("assigned_agent_id", agentId);
-      
-      const convContactIds = (agentConvs || []).map((c) => c.contact_id).filter(Boolean) as string[];
-
-      // Find contacts from call_logs for this agent
-      const { data: callLogs } = await admin
-        .from("call_logs")
-        .select("customer_number")
-        .or(`agent_name.ilike.%${agentName}%,user_id.eq.${agentId},assigned_to.eq.${agentId}`);
-
-      const callPhones = (callLogs || []).map((c) => c.customer_number).filter(Boolean);
-      let callContactIds: string[] = [];
-      if (callPhones.length > 0) {
-        const { data: matchedContacts } = await admin
-          .from("contacts")
-          .select("id")
-          .in("phone", callPhones);
-        callContactIds = (matchedContacts || []).map((m) => m.id);
+    const mytellyPhoneMap = new Map<string, any>();
+    (allCallLogs || []).forEach((cl) => {
+      const num = cl.customer_number || "";
+      const digits = num.replace(/\D/g, "").slice(-10);
+      if (digits && !mytellyPhoneMap.has(digits)) {
+        mytellyPhoneMap.set(digits, cl);
       }
+    });
 
-      // Find contacts from deals assigned to this agent
-      const { data: agentDeals } = await admin
-        .from("deals")
-        .select("contact_id")
-        .or(`user_id.eq.${agentId},assigned_to.eq.${agentId}`);
-      const dealContactIds = (agentDeals || []).map((d) => d.contact_id).filter(Boolean) as string[];
-
-      const mergedIds = Array.from(new Set([...convContactIds, ...callContactIds, ...dealContactIds]));
-      if (mergedIds.length > 0) {
-        assignedContactIds = mergedIds;
-      }
-    }
-
+    // 3. Fetch contacts
     let query = admin
       .from("contacts")
       .select("id, name, phone, email, company, created_at, updated_at")
       .order("created_at", { ascending: false })
       .limit(limit);
-
-    if (assignedContactIds && assignedContactIds.length > 0) {
-      query = query.in("id", assignedContactIds);
-    }
 
     if (search) {
       query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%`);
@@ -83,67 +59,64 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
-    // Fallback if no specific contacts assigned yet
-    let finalContacts = contacts || [];
-    if (finalContacts.length === 0 && (!assignedContactIds || assignedContactIds.length === 0)) {
-      const { data: allContacts } = await admin
-        .from("contacts")
-        .select("id, name, phone, email, company, created_at, updated_at")
-        .order("created_at", { ascending: false })
-        .limit(limit);
-      finalContacts = allContacts || [];
-    }
+    const contactPhoneSet = new Set<string>();
+    const mappedContacts = (contacts || []).map((c) => {
+      const cleanPhone = (c.phone || "").replace(/\D/g, "");
+      const digits10 = cleanPhone.slice(-10);
+      if (digits10) contactPhoneSet.add(digits10);
 
-    // Fetch related call logs & deals to resolve source & followUp dates
-    const contactPhones = finalContacts.map((c) => c.phone).filter(Boolean);
-    const { data: relatedCalls } = await admin
-      .from("call_logs")
-      .select("customer_number, virtual_number, outcome, notes, call_date, created_at")
-      .in("customer_number", contactPhones);
-
-    const callMap = new Map<string, any>();
-    (relatedCalls || []).forEach((cl) => {
-      if (cl.customer_number && !callMap.has(cl.customer_number)) {
-        callMap.set(cl.customer_number, cl);
-      }
-    });
-
-    const todayStr = new Date().toISOString().split("T")[0];
-
-    const mapped = finalContacts.map((c, idx) => {
-      const call = callMap.get(c.phone);
-      let source = "WhatsApp";
-      if (call && call.virtual_number) {
-        source = "My Telly";
+      // Resolve Accurate Source
+      let source = "Direct Call";
+      if (whatsappContactIdSet.has(c.id) || (digits10 && whatsappPhoneSet.has(digits10))) {
+        source = "WhatsApp";
       } else if (c.email && c.email.includes("@")) {
         source = "Meta Ads";
-      } else if (idx % 3 === 0) {
-        source = "Meta Ads";
-      } else if (idx % 3 === 1) {
-        source = "WhatsApp";
-      } else {
+      } else if (digits10 && mytellyPhoneMap.has(digits10)) {
         source = "My Telly";
       }
 
-      const isFollowUp = call?.outcome === "callback" || call?.outcome === "interested" || (idx < 3);
-      const followUpDate = isFollowUp ? `Today, ${3 + (idx % 4)}:00 PM` : null;
+      const call = digits10 ? mytellyPhoneMap.get(digits10) : null;
+      const isFollowUp = call?.outcome === "callback" || call?.outcome === "interested";
 
       return {
         id: c.id,
-        name: c.name || "Customer " + (c.phone ? c.phone.slice(-4) : ""),
+        name: c.name || "Customer " + (cleanPhone ? cleanPhone.slice(-4) : ""),
         phone: c.phone || "",
         stage: isFollowUp ? "follow_up" : "lead",
         source: source,
         company: c.company || "",
         created_at: c.created_at,
-        notes: call?.notes || "Lead captured from " + source,
-        followUpDate: followUpDate,
+        notes: call?.notes || "Lead from " + source,
+        followUpDate: isFollowUp ? "Today, 5:00 PM" : null,
       };
     });
 
+    // 4. Merge MyTelly IVR Callers who might not be in contacts table yet (e.g. +919080519175)
+    const mytellyExtraLeads: any[] = [];
+    (allCallLogs || []).forEach((cl) => {
+      const num = cl.customer_number || "";
+      const digits = num.replace(/\D/g, "").slice(-10);
+      if (digits && !contactPhoneSet.has(digits)) {
+        contactPhoneSet.add(digits);
+        mytellyExtraLeads.push({
+          id: "MYTELLY-" + (cl.id || digits),
+          name: "My Telly Caller (" + (cl.agent_name ? cl.agent_name + " attended" : digits.slice(-4)) + ")",
+          phone: cl.customer_number || `+91${digits}`,
+          stage: "lead",
+          source: "My Telly",
+          company: "MyTelly IVR Call",
+          created_at: cl.created_at || cl.call_date,
+          notes: `IVR Call handled by ${cl.agent_name || "Executive"}. Duration: ${cl.call_duration || "00:30"}`,
+          followUpDate: null,
+        });
+      }
+    });
+
+    const combinedLeads = [...mappedContacts, ...mytellyExtraLeads];
+
     return NextResponse.json({
       ok: true,
-      data: mapped,
+      data: combinedLeads,
     });
   } catch (err: any) {
     console.error("[api/mobile/leads] Exception:", err);
