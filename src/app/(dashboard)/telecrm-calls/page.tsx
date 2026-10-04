@@ -766,11 +766,8 @@ export default function TeleCrmCallsDashboard() {
 
                       {/* Executive Name */}
                       <td className="px-4 py-3">
-                        <div className="font-medium text-foreground">
+                        <div className="font-semibold text-foreground text-sm">
                           {call.agent_name}
-                        </div>
-                        <div className="text-[11px] text-muted-foreground">
-                          Sales Executive
                         </div>
                       </td>
 

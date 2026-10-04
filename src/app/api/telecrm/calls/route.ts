@@ -214,7 +214,18 @@ export async function GET(req: NextRequest) {
     const seenMap = new Set<string>();
     const allLogs: any[] = [];
 
+    const isVirtualPilotNumber = (num?: string | null) => {
+      if (!num) return false;
+      const clean = num.replace(/\D/g, "");
+      return clean.includes("9672115123");
+    };
+
     for (const log of [...parsedCallLogs, ...parsedNotesLogs]) {
+      // Exclude IVR virtual pilot number from customer logs (as it is not a real customer)
+      if (isVirtualPilotNumber(log.customer_number)) {
+        continue;
+      }
+
       const key = `${log.customer_number}_${log.call_date}_${log.call_duration}`;
       if (!seenMap.has(key)) {
         seenMap.add(key);
