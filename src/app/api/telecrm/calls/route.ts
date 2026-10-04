@@ -4,6 +4,23 @@ import { supabaseAdmin } from "@/lib/flows/admin-client";
 
 export const dynamic = "force-dynamic";
 
+function normalizeExecutiveName(raw?: string | null): string {
+  if (!raw) return "Unassigned";
+  const lower = raw.toLowerCase().trim();
+  if (lower.includes("karthick")) return "Karthick V";
+  if (lower.includes("subash")) return "Subash";
+  if (lower.includes("muthupandi") || lower.includes("muthu")) return "Muthupandi";
+  if (lower.includes("baskar")) return "Baskar";
+  if (lower.includes("bala")) return "Bala";
+  if (lower.includes("nallakaman")) return "Nallakaman S";
+  if (lower.includes("satheesh")) return "Satheesh";
+  if (lower.includes("prasad")) return "Rk Prasad";
+  if (lower.includes("paval")) return "Paval J";
+  if (lower.includes("md") || lower.includes("management")) return "MD Sir";
+  if (lower.includes("sales executive") || lower === "executive") return "Sales Desk";
+  return raw.replace(/\(\+?\d+\)/g, "").trim();
+}
+
 export async function GET(req: NextRequest) {
   try {
     const ctx = await getCurrentAccount();
@@ -90,7 +107,7 @@ export async function GET(req: NextRequest) {
         account_id: ctx.accountId,
         customer_name: custName,
         customer_number: cleanPhone.length === 10 ? `+91${cleanPhone}` : cl.customer_number,
-        agent_name: cl.agent_name || "Sales Executive",
+        agent_name: normalizeExecutiveName(cl.agent_name),
         call_type: callType,
         call_status: (cl.call_status || "connected").toLowerCase().includes("miss") ? "Missed" : "Connected",
         call_duration: durStr.includes(":") ? durStr : `${durSecs}s`,
@@ -137,7 +154,8 @@ export async function GET(req: NextRequest) {
       const statusMatch = text.match(/(?:📞\s*Call Status|Status):\s*([^|\n]+)/);
       const actionIdMatch = text.match(/ActionId:\s*([^\s|\n]+)/);
 
-      const agent_name = agentMatch ? agentMatch[1].trim().replace(/\(\+\d+\)/g, "").trim() : "Sales Executive";
+      const rawAgent = agentMatch ? agentMatch[1].trim() : "";
+      const agent_name = normalizeExecutiveName(rawAgent);
 
       let call_date = "";
       let start_time = "";
@@ -207,7 +225,7 @@ export async function GET(req: NextRequest) {
     // Sort by newest created_at / call_date descending
     allLogs.sort((a, b) => new Date(b.created_at || b.call_date).getTime() - new Date(a.created_at || a.call_date).getTime());
 
-    const category = url.searchParams.get("category") || "all"; // "all" | "smart_app" | "mytelly"
+    const category = url.searchParams.get("category") || "smart_app"; // default to smart_app
 
     // Tag each log with source
     const taggedLogs = allLogs.map((log) => {
@@ -316,8 +334,21 @@ export async function GET(req: NextRequest) {
 
     // Executive breakdown with incoming/outgoing counts
     const execMap = new Map<string, { total: number; incoming: number; outgoing: number; connected: number; missed: number; duration: number }>();
-    taggedLogs.forEach((l) => {
-      const name = l.agent_name || "Sales Executive";
+    
+    // Always pre-populate the 3 dedicated mobile executives
+    execMap.set("Karthick V", { total: 0, incoming: 0, outgoing: 0, connected: 0, missed: 0, duration: 0 });
+    execMap.set("Subash", { total: 0, incoming: 0, outgoing: 0, connected: 0, missed: 0, duration: 0 });
+    execMap.set("Muthupandi", { total: 0, incoming: 0, outgoing: 0, connected: 0, missed: 0, duration: 0 });
+
+    const targetLogsForBreakdown = category === "smart_app"
+      ? taggedLogs.filter((l) => l.source === "sli_smart_app")
+      : category === "mytelly"
+      ? taggedLogs.filter((l) => l.source === "mytelly")
+      : taggedLogs;
+
+    targetLogsForBreakdown.forEach((l) => {
+      const name = normalizeExecutiveName(l.agent_name);
+      if (name === "Sales Desk" || name === "Unassigned") return; // exclude dummy placeholders
       const current = execMap.get(name) || { total: 0, incoming: 0, outgoing: 0, connected: 0, missed: 0, duration: 0 };
       current.total++;
       if (l.call_type === "Incoming") current.incoming++;
@@ -332,18 +363,25 @@ export async function GET(req: NextRequest) {
       execMap.set(name, current);
     });
 
-    const appUsersList = ["karthick", "subash", "muthupandi"];
+    const appUsersList = ["karthick v", "subash", "muthupandi"];
 
-    const executiveBreakdown = Array.from(execMap.entries()).map(([name, stats]) => {
-      const isAppUser = appUsersList.some((u) => name.toLowerCase().includes(u));
-      return {
-        name,
-        ...stats,
-        isAppUser,
-        formattedDuration: formatTime(stats.duration),
-        connectionRate: stats.total > 0 ? Math.round((stats.connected / stats.total) * 100) : 0,
-      };
-    });
+    const executiveBreakdown = Array.from(execMap.entries())
+      .filter(([name, stats]) => {
+        if (category === "smart_app") {
+          return appUsersList.includes(name.toLowerCase());
+        }
+        return stats.total > 0 || appUsersList.includes(name.toLowerCase());
+      })
+      .map(([name, stats]) => {
+        const isAppUser = appUsersList.includes(name.toLowerCase());
+        return {
+          name,
+          ...stats,
+          isAppUser,
+          formattedDuration: formatTime(stats.duration),
+          connectionRate: stats.total > 0 ? Math.round((stats.connected / stats.total) * 100) : 0,
+        };
+      });
 
     return NextResponse.json({
       ok: true,

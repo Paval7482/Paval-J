@@ -404,7 +404,7 @@ export default function TeleCrmCallsDashboard() {
             }`}
           >
             <Phone className="h-3.5 w-3.5" />
-            <span>📱 SLI Smart App (Karthick, Subash, Muthupandi)</span>
+            <span>📱 SLI Smart App</span>
             {category === "smart_app" && (
               <span className="inline-flex items-center rounded-md px-1.5 py-0 text-[10px] font-semibold bg-white/20 text-white">
                 Active
@@ -559,15 +559,16 @@ export default function TeleCrmCallsDashboard() {
                 className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm font-medium shadow-sm focus:outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="all">All Executives</option>
-                <option value="SUBASH">SUBASH</option>
-                <option value="NALLAKAMAN">NALLAKAMAN</option>
+                <option value="Karthick">Karthick V (Mobile App)</option>
+                <option value="Subash">Subash (Mobile App)</option>
+                <option value="Muthupandi">Muthupandi (Mobile App)</option>
+                <option value="Baskar">Baskar</option>
+                <option value="Bala">Bala</option>
+                <option value="Nallakaman">Nallakaman S</option>
+                <option value="Satheesh">Satheesh</option>
+                <option value="Prasad">RK Prasad</option>
                 <option value="Paval">Paval J</option>
-                <option value="RK PRASAD">RK PRASAD</option>
-                <option value="karthick">KARTHICK</option>
-                <option value="Satheesh">SATHEESH</option>
-                <option value="BALA">BALA</option>
-                <option value="BASKAR">BASKAR</option>
-                <option value="MD SIR">MD SIR</option>
+                <option value="MD">MD Sir</option>
               </select>
             ) : (
               <div className="flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary border border-primary/20">
