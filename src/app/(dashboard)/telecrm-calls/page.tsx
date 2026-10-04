@@ -278,7 +278,7 @@ export default function TeleCrmCallsDashboard() {
 
   const handleExportCSV = () => {
     if (calls.length === 0) {
-      toast.error("No TeleCRM call logs to export");
+      toast.error("No call logs to export");
       return;
     }
 
@@ -315,11 +315,11 @@ export default function TeleCrmCallsDashboard() {
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
     const exportTime = new Date().toISOString().slice(0, 10);
-    link.setAttribute("download", `Sri_Lakshmi_Industries_TeleCRM_Calls_${exportTime}.csv`);
+    link.setAttribute("download", `Sri_Lakshmi_Industries_Calling_Logs_${exportTime}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success(`Exported ${calls.length} TeleCRM call records successfully!`);
+    toast.success(`Exported ${calls.length} call records successfully!`);
   };
 
   const getActiveDateLabel = () => {
@@ -349,15 +349,15 @@ export default function TeleCrmCallsDashboard() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                TeleCRM Calls Dashboard
+                Sri Lakshmi Live Calling Hub
               </h1>
-              <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-300 dark:bg-indigo-950/40 dark:text-indigo-300">
-                <Sparkles className="h-3 w-3 mr-1 text-indigo-500" />
-                TeleCRM Cloud Sync Active
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300">
+                <Sparkles className="h-3 w-3 mr-1 text-emerald-500" />
+                SLI Mobile App Live 🟢 (8TB Storage)
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Live executive incoming & outgoing calling logs, duration & recordings from TeleCRM Mobile App
+              Live executive incoming & outgoing calling logs, duration & 8TB local recordings from Sri Lakshmi Mobile App
             </p>
           </div>
 
@@ -365,12 +365,12 @@ export default function TeleCrmCallsDashboard() {
             <Button
               variant="outline"
               size="sm"
-              onClick={handleSyncNow}
-              disabled={syncing}
+              onClick={fetchCalls}
+              disabled={loading}
               className="gap-2 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-800 border-indigo-300 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800 shadow-xs"
             >
-              <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-              <span>Sync TeleCRM Calls</span>
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              <span>Refresh Live Calls</span>
             </Button>
 
             <Button
@@ -382,17 +382,6 @@ export default function TeleCrmCallsDashboard() {
               <Download className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               <span>Export CSV</span>
             </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchCalls}
-              disabled={loading}
-              className="gap-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
           </div>
         </div>
 
@@ -402,13 +391,13 @@ export default function TeleCrmCallsDashboard() {
             href="/calls"
             className="px-3 py-1.5 text-xs font-medium rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
-            All Calls & IVR
+            MyTelly IVR
           </Link>
           <Link
             href="/telecrm-calls"
             className="px-3 py-1.5 text-xs font-semibold rounded-md bg-indigo-600 text-white shadow-xs flex items-center gap-1.5"
           >
-            <span>TeleCRM Dashboard</span>
+            <span>SLI Calling Hub</span>
             <span className="inline-flex items-center rounded-md px-1.5 py-0 text-[10px] font-semibold bg-white/20 text-white">
               Live
             </span>
@@ -551,7 +540,7 @@ export default function TeleCrmCallsDashboard() {
             ) : (
               <div className="flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary border border-primary/20">
                 <UserCheck className="h-3.5 w-3.5" />
-                <span>My TeleCRM Calls</span>
+                <span>My Assigned Calls</span>
               </div>
             )}
           </div>
@@ -562,7 +551,7 @@ export default function TeleCrmCallsDashboard() {
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-medium">Total TeleCRM Calls</span>
+            <span className="text-xs font-medium">Total Mobile Calls</span>
             <Phone className="h-4 w-4 text-indigo-500" />
           </div>
           <div className="mt-2 text-2xl font-bold text-foreground">{stats.totalCalls}</div>
@@ -615,7 +604,7 @@ export default function TeleCrmCallsDashboard() {
               <Users className="h-4 w-4 text-primary" />
               <span>Executive Calling Performance</span>
             </div>
-            <span className="text-xs text-muted-foreground">Live TeleCRM Sync</span>
+            <span className="text-xs text-muted-foreground">SLI Mobile App Live</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             {executiveBreakdown.map((exec) => (
@@ -664,15 +653,15 @@ export default function TeleCrmCallsDashboard() {
               {loading && calls.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
-                    <RefreshCw className="mx-auto h-6 w-6 animate-spin mb-2" />
-                    Loading call records from TeleCRM...
+                    <RefreshCw className="mx-auto h-6 w-6 animate-spin mb-2 text-primary" />
+                    Loading live call records from SLI Mobile App...
                   </td>
                 </tr>
               ) : calls.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
                     <PhoneMissed className="mx-auto h-8 w-8 text-muted-foreground/50 mb-2" />
-                    No TeleCRM call records found matching your filters.
+                    No call records found matching your filters.
                   </td>
                 </tr>
               ) : (
@@ -850,21 +839,12 @@ export default function TeleCrmCallsDashboard() {
                         ) : call.recording_name ? (
                           <div className="flex items-center justify-center gap-1.5">
                             <span
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800 shadow-2xs"
-                              title={`Recorded in TeleCRM Mobile App: ${call.recording_name}`}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 shadow-2xs"
+                              title={`Recorded in SLI Companion App: ${call.recording_name}`}
                             >
-                              <Mic className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                              <span>App Recorded</span>
+                              <Mic className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                              <span>SLI Recorded</span>
                             </span>
-                            <a
-                              href="https://next.telecrm.in"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                              title="Listen on TeleCRM Portal"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
                           </div>
                         ) : (
                           <span className="text-xs text-muted-foreground/50">-</span>

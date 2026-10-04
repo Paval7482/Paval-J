@@ -25,36 +25,34 @@ export async function POST(req: NextRequest) {
     const last10 = customerPhone.slice(-10);
     let recordingUrl: string | null = null;
 
-    // 1. Upload audio file to Supabase storage if provided
+    // 1. Upload audio file directly to Sri Lakshmi 8TB Server Storage (Bypass Supabase Storage)
     if (audioFile && audioFile.size > 0) {
       try {
-        const bucketName = "call-recordings";
-        // Ensure bucket exists
-        const { data: buckets } = await admin.storage.listBuckets();
-        const hasBucket = (buckets || []).some((b) => b.name === bucketName);
-        if (!hasBucket) {
-          await admin.storage.createBucket(bucketName, { public: true });
-        }
+        const serverHubUrl = process.env.SLI_SERVER_HUB_URL || process.env.NEXT_PUBLIC_SLI_SERVER_HUB_URL || "http://127.0.0.1:8080";
+        const forwardForm = new FormData();
+        forwardForm.append("customer_number", customerPhone);
+        forwardForm.append("agent_name", agentName);
+        forwardForm.append("agent_phone", agentPhone);
+        forwardForm.append("call_type", callType);
+        forwardForm.append("duration", duration);
+        forwardForm.append("call_status", callStatus);
+        forwardForm.append("timestamp", recordedAt);
+        forwardForm.append("audio", audioFile);
 
-        const ext = audioFile.name?.split(".").pop() || "m4a";
-        const fileName = `sync_${Date.now()}_${last10}.${ext}`;
-        const buffer = Buffer.from(await audioFile.arrayBuffer());
+        const hubRes = await fetch(`${serverHubUrl}/api/upload-call`, {
+          method: "POST",
+          body: forwardForm,
+        });
 
-        const { error: uploadError } = await admin.storage
-          .from(bucketName)
-          .upload(fileName, buffer, {
-            contentType: audioFile.type || "audio/mp4",
-            upsert: true,
-          });
-
-        if (!uploadError) {
-          const { data: publicUrlData } = admin.storage.from(bucketName).getPublicUrl(fileName);
-          recordingUrl = publicUrlData?.publicUrl || null;
+        if (hubRes.ok) {
+          const hubData = await hubRes.json();
+          recordingUrl = hubData.recordingUrl || null;
+          console.log("[8TB SERVER STORAGE] ✅ Audio uploaded directly to 8TB Server:", recordingUrl);
         } else {
-          console.warn("[Mobile Upload Call] Supabase Storage upload error:", uploadError);
+          console.warn("[8TB SERVER STORAGE] Server hub responded with status:", hubRes.status);
         }
-      } catch (storageErr) {
-        console.error("[Mobile Upload Call] Storage exception:", storageErr);
+      } catch (serverErr) {
+        console.warn("[8TB SERVER STORAGE] Server hub forward warning:", serverErr);
       }
     }
 

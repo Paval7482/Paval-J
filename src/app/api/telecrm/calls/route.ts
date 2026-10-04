@@ -32,20 +32,78 @@ export async function GET(req: NextRequest) {
 
     const executiveName = !isCallerAdmin ? (callerProfile?.full_name || "").trim() : "";
 
-    // Query TeleCRM specific contact notes
-    const { data: notes, error: notesErr } = await admin
+    const serverHubUrl = process.env.SLI_SERVER_HUB_URL || process.env.NEXT_PUBLIC_SLI_SERVER_HUB_URL || "http://127.0.0.1:8080";
+
+    // 1. Query call_logs table (Direct Mobile App & 8TB Hub syncs)
+    const { data: callLogs } = await admin
+      .from("call_logs")
+      .select("*")
+      .eq("account_id", ctx.accountId)
+      .order("call_date", { ascending: false })
+      .limit(1000);
+
+    // 2. Query contact notes with call markers (Companion App, 8TB Live, TeleCRM, etc.)
+    const { data: notes } = await admin
       .from("contact_notes")
       .select("id, contact_id, note_text, created_at, contacts(phone, name)")
       .eq("account_id", ctx.accountId)
-      .ilike("note_text", "%TeleCRM%")
+      .or("note_text.ilike.%Call%,note_text.ilike.%Executive%,note_text.ilike.%Duration%,note_text.ilike.%TeleCRM%")
       .order("created_at", { ascending: false })
-      .limit(500);
+      .limit(1000);
 
-    if (notesErr) {
-      return NextResponse.json({ error: notesErr.message }, { status: 500 });
-    }
+    // Build contacts lookup for call_logs customer names
+    const { data: allContacts } = await admin
+      .from("contacts")
+      .select("id, name, phone")
+      .eq("account_id", ctx.accountId)
+      .limit(2000);
 
-    const allLogs = (notes || []).map((n: any) => {
+    const contactMap = new Map<string, string>();
+    (allContacts || []).forEach((c: any) => {
+      if (c.phone) contactMap.set(c.phone.replace(/\D/g, "").slice(-10), c.name || "Customer");
+    });
+
+    const parsedCallLogs = (callLogs || []).map((cl: any) => {
+      const cleanPhone = (cl.customer_number || "").replace(/\D/g, "");
+      const last10 = cleanPhone.slice(-10);
+      const custName = contactMap.get(last10) || `Customer (+91${last10})`;
+      const isIncoming = (cl.call_type || "").toLowerCase().includes("in");
+      const callType = isIncoming ? "Incoming" : "Outgoing";
+      const durStr = cl.call_duration || "00:00:00";
+      const durParts = durStr.split(":").map(Number);
+      let durSecs = 0;
+      if (durParts.length === 3) durSecs = durParts[0] * 3600 + durParts[1] * 60 + durParts[2];
+      else if (durParts.length === 2) durSecs = durParts[0] * 60 + durParts[1];
+      else durSecs = parseInt(durStr, 10) || 0;
+
+      let recUrl = cl.recording_url || null;
+      if (recUrl && recUrl.startsWith("/api/audio/")) {
+        // Can be streamed from local 8TB hub or proxy
+        recUrl = `${serverHubUrl}${recUrl}`;
+      }
+
+      const callDateStr = cl.call_date ? String(cl.call_date).slice(0, 10) : (cl.created_at ? String(cl.created_at).slice(0, 10) : "");
+
+      return {
+        id: cl.id,
+        action_id: cl.id,
+        account_id: ctx.accountId,
+        customer_name: custName,
+        customer_number: cleanPhone.length === 10 ? `+91${cleanPhone}` : cl.customer_number,
+        agent_name: cl.agent_name || "Sales Executive",
+        call_type: callType,
+        call_status: (cl.call_status || "connected").toLowerCase().includes("miss") ? "Missed" : "Connected",
+        call_duration: durStr.includes(":") ? durStr : `${durSecs}s`,
+        duration_seconds: durSecs,
+        call_date: callDateStr,
+        start_time: cl.call_date ? new Date(cl.call_date).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" }) : "",
+        recording_url: recUrl,
+        recording_name: recUrl ? recUrl.split("/").pop() : null,
+        created_at: cl.created_at || cl.call_date,
+      };
+    });
+
+    const parsedNotesLogs = (notes || []).map((n: any) => {
       const text = n.note_text || "";
       const isIncoming = text.toLowerCase().includes("incoming");
       const isOutgoing = text.toLowerCase().includes("outgoing");
@@ -67,6 +125,8 @@ export async function GET(req: NextRequest) {
         if (rawAudio && rawAudio !== "[object Object]" && !rawAudio.toLowerCase().includes("invalid")) {
           if (rawAudio.startsWith("http://") || rawAudio.startsWith("https://")) {
             recording_url = rawAudio;
+          } else if (rawAudio.startsWith("/api/audio/")) {
+            recording_url = `${serverHubUrl}${rawAudio}`;
           } else {
             recording_name = rawAudio;
           }
@@ -77,7 +137,7 @@ export async function GET(req: NextRequest) {
       const statusMatch = text.match(/(?:📞\s*Call Status|Status):\s*([^|\n]+)/);
       const actionIdMatch = text.match(/ActionId:\s*([^\s|\n]+)/);
 
-      const agent_name = agentMatch ? agentMatch[1].trim() : "Sales Executive";
+      const agent_name = agentMatch ? agentMatch[1].trim().replace(/\(\+\d+\)/g, "").trim() : "Sales Executive";
 
       let call_date = "";
       let start_time = "";
@@ -109,6 +169,8 @@ export async function GET(req: NextRequest) {
         durationSeconds = durParts[0] * 3600 + durParts[1] * 60 + durParts[2];
       } else if (durParts.length === 2) {
         durationSeconds = durParts[0] * 60 + durParts[1];
+      } else {
+        durationSeconds = parseInt(durationStr, 10) || 0;
       }
 
       return {
@@ -129,6 +191,21 @@ export async function GET(req: NextRequest) {
         created_at: n.created_at,
       };
     });
+
+    // Merge and deduplicate calls by customer number and recording / timestamp
+    const seenMap = new Set<string>();
+    const allLogs: any[] = [];
+
+    for (const log of [...parsedCallLogs, ...parsedNotesLogs]) {
+      const key = `${log.customer_number}_${log.call_date}_${log.call_duration}`;
+      if (!seenMap.has(key)) {
+        seenMap.add(key);
+        allLogs.push(log);
+      }
+    }
+
+    // Sort by newest created_at / call_date descending
+    allLogs.sort((a, b) => new Date(b.created_at || b.call_date).getTime() - new Date(a.created_at || a.call_date).getTime());
 
     let filteredLogs = allLogs;
 
