@@ -813,15 +813,11 @@ export default function PipelinesPage() {
                 className="h-8.5 rounded-md border border-input bg-background px-3 py-1 text-xs font-semibold shadow-2xs focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
               >
                 <option value="all">All Executives</option>
-                <option value="SUBASH">SUBASH</option>
-                <option value="NALLAKAMAN">NALLAKAMAN</option>
-                <option value="Paval">Paval J</option>
-                <option value="RK PRASAD">RK PRASAD</option>
-                <option value="karthick">KARTHICK</option>
-                <option value="Satheesh">SATHEESH</option>
-                <option value="BALA">BALA</option>
-                <option value="BASKAR">BASKAR</option>
-                <option value="MD SIR">MD SIR</option>
+                {members.map((m) => (
+                  <option key={m.user_id} value={m.full_name}>
+                    {m.full_name}
+                  </option>
+                ))}
               </select>
             ) : (
               <div className="flex items-center gap-1.5 rounded-md bg-primary/10 px-3 py-1 text-xs font-semibold text-primary border border-primary/20">
