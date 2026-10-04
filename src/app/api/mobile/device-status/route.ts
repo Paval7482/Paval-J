@@ -39,54 +39,48 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    const targetMobileEmails = [
-      "karthick_v@srilakshmiindustries.co.in",
-      "subash@srilakshmiindustries.co.in",
-      "muthupandi@srilakshmiindustries.com",
-    ];
-
     const todayDateStr = new Date().toISOString().slice(0, 10);
 
-    // Build active devices list
-    const devices = targetMobileEmails
-      .map((email) => {
-        const authUser = authUsers.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+    // Build active devices list for all users logged in today
+    const devices = authUsers
+      .filter((authUser) => authUser.last_sign_in_at && authUser.last_sign_in_at.startsWith(todayDateStr))
+      .map((authUser) => {
+        const email = authUser.email || "";
         const profile = (profiles || []).find(
-          (p) => p.email?.toLowerCase() === email.toLowerCase() || p.user_id === authUser?.id
+          (p) => p.email?.toLowerCase() === email.toLowerCase() || p.user_id === authUser.id
         );
 
-        if (!authUser || !authUser.last_sign_in_at) {
-          return null;
+        const lastSignIn = authUser.last_sign_in_at!;
+        let name = profile?.full_name || "";
+        if (!name) {
+          if (email.includes("md")) name = "MD Sir";
+          else if (email.includes("karthick")) name = "Karthick V";
+          else if (email.includes("subash")) name = "Subash";
+          else if (email.includes("muthu")) name = "Muthupandi";
+          else name = email.split("@")[0];
         }
 
-        const lastSignIn = authUser.last_sign_in_at;
-        const isToday = lastSignIn.startsWith(todayDateStr);
-        const name = profile?.full_name || (email.includes("karthick") ? "Karthick V" : email.includes("subash") ? "Subash" : "Muthupandi");
         const nameLower = name.toLowerCase();
-
         const matchedStats = Object.entries(callCountsByAgent).find(([k]) => nameLower.includes(k) || k.includes(nameLower));
         const stats = matchedStats ? matchedStats[1] : { total: 0, incoming: 0, outgoing: 0, lastCall: null };
-
-        // Determine online status: signed in today
-        const isOnline = isToday;
 
         return {
           id: authUser.id,
           name,
           email,
+          role: profile?.account_role || "executive",
           login_at: lastSignIn,
           last_active_at: lastSignIn,
-          is_online: isOnline,
-          is_today: isToday,
+          is_online: true,
+          is_today: true,
           calls_synced: stats.total,
           incoming_synced: stats.incoming,
           outgoing_synced: stats.outgoing,
           last_call_at: stats.lastCall,
         };
-      })
-      .filter((d): d is NonNullable<typeof d> => d !== null && Boolean(d.is_today));
+      });
 
-    // Sort by newest login descending
+    // Sort by newest login descending (most recent first)
     devices.sort((a, b) => new Date(b.login_at).getTime() - new Date(a.login_at).getTime());
 
     return NextResponse.json({
