@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/flows/admin-client";
+import { recordMobileHeartbeat } from "@/lib/mobile-session";
 
 export async function GET(req: NextRequest) {
   try {
@@ -8,6 +9,10 @@ export async function GET(req: NextRequest) {
 
     const agentName = (url.searchParams.get("agent_name") || url.searchParams.get("agent") || "").trim();
     const isAdmin = !agentName || /admin|paval|owner/i.test(agentName);
+
+    if (agentName && !isAdmin) {
+      recordMobileHeartbeat(agentName);
+    }
 
     // 1. Fetch from call_logs table
     const { data: rawCallLogs } = await admin
