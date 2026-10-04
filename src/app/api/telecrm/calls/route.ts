@@ -247,8 +247,7 @@ export async function GET(req: NextRequest) {
         text.includes("8tb server") ||
         rec.includes("/api/audio/") ||
         log.source === "sli_mobile_sync" ||
-        log.source === "sli_8tb_server_sync" ||
-        ["karthick", "subash", "muthupandi"].some((u) => (log.agent_name || "").toLowerCase().includes(u));
+        log.source === "sli_8tb_server_sync";
 
       return {
         ...log,

@@ -30,6 +30,7 @@ import {
   Mic,
   Headphones,
   ExternalLink,
+  Smartphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -195,9 +196,25 @@ export default function TeleCrmCallsDashboard() {
   const [customEnd, setCustomEnd] = useState<string>("");
   const [isDateOpen, setIsDateOpen] = useState(false);
 
-  // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [mobileDevices, setMobileDevices] = useState<any[]>([]);
+  const [syncingDevices, setSyncingDevices] = useState(false);
+
+  const fetchMobileDevices = useCallback(async () => {
+    try {
+      setSyncingDevices(true);
+      const res = await fetch("/api/mobile/device-status");
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.devices)) {
+        setMobileDevices(data.devices);
+      }
+    } catch (e) {
+      console.warn("Failed to fetch mobile devices:", e);
+    } finally {
+      setSyncingDevices(false);
+    }
+  }, []);
 
   const fetchCalls = useCallback(async () => {
     try {
@@ -232,12 +249,21 @@ export default function TeleCrmCallsDashboard() {
 
   useEffect(() => {
     fetchCalls();
-    // Auto-refresh calls list every 30 seconds
+    fetchMobileDevices();
+    // Auto-refresh calls & mobile devices list every 10 seconds
     const pollInterval = setInterval(() => {
       fetchCalls();
-    }, 30000);
+      fetchMobileDevices();
+    }, 10000);
     return () => clearInterval(pollInterval);
-  }, [fetchCalls]);
+  }, [fetchCalls, fetchMobileDevices]);
+
+  const handleManualSyncAll = async () => {
+    toast.info("Syncing real-time SLI Smart App devices & calls...");
+    await fetchMobileDevices();
+    await fetchCalls();
+    toast.success("SLI Mobile Devices & Calls Synced Live!");
+  };
 
   const handleSyncNow = async () => {
     try {
@@ -369,6 +395,17 @@ export default function TeleCrmCallsDashboard() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleManualSyncAll}
+              disabled={syncingDevices || loading}
+              className="gap-2 text-emerald-800 bg-emerald-100 hover:bg-emerald-200 hover:text-emerald-900 border-emerald-400 dark:bg-emerald-950/60 dark:text-emerald-200 dark:border-emerald-700 shadow-xs font-semibold"
+            >
+              <Smartphone className={`h-4 w-4 text-emerald-600 ${syncingDevices ? "animate-spin" : ""}`} />
+              <span>🔄 Sync SLI App Devices</span>
+            </Button>
+
             <Button
               variant="outline"
               size="sm"
@@ -627,6 +664,55 @@ export default function TeleCrmCallsDashboard() {
           </div>
           <span className="text-xs text-muted-foreground">Across All Calls</span>
         </div>
+      </div>
+
+      {/* Real-time Executive Mobile Devices Tracker */}
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-800/60 p-3.5 shadow-sm flex flex-col gap-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-wide">
+            <Smartphone className="h-4 w-4 text-emerald-600" />
+            <span>Real-Time SLI Mobile App Device Sessions</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+              {mobileDevices.length > 0
+                ? `${mobileDevices.length} Executive Device(s) Logged In`
+                : "Awaiting Mobile App Login..."}
+            </span>
+          </div>
+        </div>
+
+        {mobileDevices.length === 0 ? (
+          <div className="text-xs text-muted-foreground bg-white/70 dark:bg-background/40 p-3 rounded-md border border-dashed border-border text-center flex flex-col items-center gap-1">
+            <span className="font-semibold text-foreground">📱 No active phone login detected yet.</span>
+            <span>Install the APK on an executive's phone and log in. Once logged in, this panel will instantly display their Name, Login Time, and Live Synced Calls!</span>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+            {mobileDevices.map((dev) => (
+              <div
+                key={dev.email}
+                className="flex flex-col gap-1 p-2.5 bg-white dark:bg-background/80 rounded-lg border border-emerald-200 dark:border-emerald-800/80 shadow-xs"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-foreground flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    {dev.name}
+                  </span>
+                  <Badge className="bg-emerald-600 text-white text-[10px] px-1.5 py-0">
+                    🟢 Logged In
+                  </Badge>
+                </div>
+                <div className="text-[11px] text-muted-foreground flex flex-col gap-0.5 mt-0.5">
+                  <span>✉️ {dev.email}</span>
+                  <span>🕒 Logged in: {new Date(dev.login_at).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" })} ({new Date(dev.login_at).toLocaleDateString()})</span>
+                  <span>📲 Synced Calls: <strong className="text-emerald-600">{dev.calls_synced || 0}</strong> (In: {dev.incoming_synced || 0} | Out: {dev.outgoing_synced || 0})</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Executive Activity & Performance Monitoring Bar (Admin view) */}

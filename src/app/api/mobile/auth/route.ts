@@ -75,6 +75,37 @@ export async function POST(req: NextRequest) {
       }, { status: 401 });
     }
 
+    // Save active mobile session to server hub
+    try {
+      const fs = await import("fs");
+      const sessionFile = "C:\\SLICRMDATA\\active_mobile_sessions.json";
+      let sessions: any[] = [];
+      if (fs.existsSync(sessionFile)) {
+        try {
+          sessions = JSON.parse(fs.readFileSync(sessionFile, "utf-8"));
+        } catch (e) {
+          sessions = [];
+        }
+      }
+      const existingIdx = sessions.findIndex((s: any) => s.email === profile.email);
+      const newSession = {
+        id: profile.user_id || profile.id,
+        name: profile.full_name || "Sales Executive",
+        email: profile.email,
+        login_at: new Date().toISOString(),
+        last_active_at: new Date().toISOString(),
+        is_online: true,
+      };
+      if (existingIdx >= 0) {
+        sessions[existingIdx] = { ...sessions[existingIdx], ...newSession };
+      } else {
+        sessions.push(newSession);
+      }
+      fs.writeFileSync(sessionFile, JSON.stringify(sessions, null, 2), "utf-8");
+    } catch (fsErr) {
+      console.warn("[Mobile Auth] Error saving session file:", fsErr);
+    }
+
     return NextResponse.json({
       ok: true,
       user: {
