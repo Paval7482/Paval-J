@@ -207,7 +207,35 @@ export async function GET(req: NextRequest) {
     // Sort by newest created_at / call_date descending
     allLogs.sort((a, b) => new Date(b.created_at || b.call_date).getTime() - new Date(a.created_at || a.call_date).getTime());
 
-    let filteredLogs = allLogs;
+    const category = url.searchParams.get("category") || "all"; // "all" | "smart_app" | "mytelly"
+
+    // Tag each log with source
+    const taggedLogs = allLogs.map((log) => {
+      const text = (log.raw_text || "").toLowerCase();
+      const rec = (log.recording_url || "").toLowerCase();
+      const isSmartApp =
+        text.includes("companion app") ||
+        text.includes("8tb server") ||
+        rec.includes("/api/audio/") ||
+        log.source === "sli_mobile_sync" ||
+        log.source === "sli_8tb_server_sync" ||
+        ["karthick", "subash", "muthupandi"].some((u) => (log.agent_name || "").toLowerCase().includes(u));
+
+      return {
+        ...log,
+        source: isSmartApp ? "sli_smart_app" : "mytelly",
+        source_label: isSmartApp ? "SLI Smart App" : "MyTelly IVR",
+      };
+    });
+
+    let filteredLogs = taggedLogs;
+
+    // Filter by category
+    if (category === "smart_app") {
+      filteredLogs = filteredLogs.filter((l) => l.source === "sli_smart_app");
+    } else if (category === "mytelly") {
+      filteredLogs = filteredLogs.filter((l) => l.source === "mytelly");
+    }
 
     // Filter by executive role if not admin
     if (executiveName) {
@@ -286,12 +314,15 @@ export async function GET(req: NextRequest) {
       return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
     };
 
-    // Executive breakdown
-    const execMap = new Map<string, { total: number; connected: number; missed: number; duration: number }>();
-    allLogs.forEach((l) => {
+    // Executive breakdown with incoming/outgoing counts
+    const execMap = new Map<string, { total: number; incoming: number; outgoing: number; connected: number; missed: number; duration: number }>();
+    taggedLogs.forEach((l) => {
       const name = l.agent_name || "Sales Executive";
-      const current = execMap.get(name) || { total: 0, connected: 0, missed: 0, duration: 0 };
+      const current = execMap.get(name) || { total: 0, incoming: 0, outgoing: 0, connected: 0, missed: 0, duration: 0 };
       current.total++;
+      if (l.call_type === "Incoming") current.incoming++;
+      else current.outgoing++;
+
       if (l.call_status.toLowerCase().includes("connected")) {
         current.connected++;
       } else {
@@ -301,12 +332,18 @@ export async function GET(req: NextRequest) {
       execMap.set(name, current);
     });
 
-    const executiveBreakdown = Array.from(execMap.entries()).map(([name, stats]) => ({
-      name,
-      ...stats,
-      formattedDuration: formatTime(stats.duration),
-      connectionRate: stats.total > 0 ? Math.round((stats.connected / stats.total) * 100) : 0,
-    }));
+    const appUsersList = ["karthick", "subash", "muthupandi"];
+
+    const executiveBreakdown = Array.from(execMap.entries()).map(([name, stats]) => {
+      const isAppUser = appUsersList.some((u) => name.toLowerCase().includes(u));
+      return {
+        name,
+        ...stats,
+        isAppUser,
+        formattedDuration: formatTime(stats.duration),
+        connectionRate: stats.total > 0 ? Math.round((stats.connected / stats.total) * 100) : 0,
+      };
+    });
 
     return NextResponse.json({
       ok: true,

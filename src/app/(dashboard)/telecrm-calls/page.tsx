@@ -55,16 +55,21 @@ interface TeleCrmCallLog {
   start_time: string;
   recording_url?: string | null;
   recording_name?: string | null;
+  source?: string;
+  source_label?: string;
   created_at: string;
 }
 
 interface ExecutiveStat {
   name: string;
   total: number;
+  incoming: number;
+  outgoing: number;
   connected: number;
   missed: number;
   formattedDuration: string;
   connectionRate: number;
+  isAppUser?: boolean;
 }
 
 const DATE_PRESETS = [
@@ -161,6 +166,7 @@ export default function TeleCrmCallsDashboard() {
   const { accountRole } = useAuth();
   const isAdminOrOwner = accountRole === "owner" || accountRole === "admin";
 
+  const [category, setCategory] = useState<"smart_app" | "mytelly" | "all">("smart_app");
   const [calls, setCalls] = useState<TeleCrmCallLog[]>([]);
   const [stats, setStats] = useState<any>({
     totalCalls: 0,
@@ -197,6 +203,7 @@ export default function TeleCrmCallsDashboard() {
     try {
       setLoading(true);
       const params = new URLSearchParams();
+      if (category !== "all") params.set("category", category);
       if (search) params.set("search", search);
       if (statusFilter !== "all") params.set("status", statusFilter);
       if (typeFilter !== "all") params.set("callType", typeFilter);
@@ -212,16 +219,16 @@ export default function TeleCrmCallsDashboard() {
         if (data.executiveBreakdown) setExecutiveBreakdown(data.executiveBreakdown);
       }
     } catch (err) {
-      console.error("Failed to load TeleCRM calls:", err);
-      toast.error("Failed to load TeleCRM calls");
+      console.error("Failed to load calls:", err);
+      toast.error("Failed to load calls");
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter, typeFilter, agentFilter, startDate, endDate]);
+  }, [category, search, statusFilter, typeFilter, agentFilter, startDate, endDate]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, statusFilter, typeFilter, agentFilter, startDate, endDate]);
+  }, [category, search, statusFilter, typeFilter, agentFilter, startDate, endDate]);
 
   useEffect(() => {
     fetchCalls();
@@ -385,23 +392,48 @@ export default function TeleCrmCallsDashboard() {
           </div>
         </div>
 
-        {/* Tab Navigation Switcher */}
-        <div className="flex items-center gap-2 border-b border-border/60 pb-1">
-          <Link
-            href="/calls"
-            className="px-3 py-1.5 text-xs font-medium rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        {/* Category Tabs Switcher */}
+        <div className="flex items-center gap-2 border-b border-border/60 pb-1 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setCategory("smart_app")}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+              category === "smart_app"
+                ? "bg-emerald-600 text-white shadow-xs"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
           >
-            MyTelly IVR
-          </Link>
-          <Link
-            href="/telecrm-calls"
-            className="px-3 py-1.5 text-xs font-semibold rounded-md bg-indigo-600 text-white shadow-xs flex items-center gap-1.5"
+            <Phone className="h-3.5 w-3.5" />
+            <span>📱 SLI Smart App (Karthick, Subash, Muthupandi)</span>
+            {category === "smart_app" && (
+              <span className="inline-flex items-center rounded-md px-1.5 py-0 text-[10px] font-semibold bg-white/20 text-white">
+                Active
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setCategory("mytelly")}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+              category === "mytelly"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
           >
-            <span>SLI Calling Hub</span>
-            <span className="inline-flex items-center rounded-md px-1.5 py-0 text-[10px] font-semibold bg-white/20 text-white">
-              Live
-            </span>
-          </Link>
+            <PhoneCall className="h-3.5 w-3.5" />
+            <span>☁️ MyTelly IVR Calls</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setCategory("all")}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+              category === "all"
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            <span>🌐 All Calls Combined</span>
+          </button>
         </div>
 
         {/* Filters Bar */}
@@ -596,17 +628,17 @@ export default function TeleCrmCallsDashboard() {
         </div>
       </div>
 
-      {/* Executive Performance Highlights Bar (Admin view) */}
+      {/* Executive Activity & Performance Monitoring Bar (Admin view) */}
       {isAdminOrOwner && executiveBreakdown.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-4 shadow-sm flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Users className="h-4 w-4 text-primary" />
-              <span>Executive Calling Performance</span>
+              <span>Executive Live Activity & Productivity Monitor</span>
             </div>
-            <span className="text-xs text-muted-foreground">SLI Mobile App Live</span>
+            <span className="text-xs text-muted-foreground">🟢 Live Phone Tracking Active</span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {executiveBreakdown.map((exec) => (
               <div
                 key={exec.name}
@@ -618,14 +650,25 @@ export default function TeleCrmCallsDashboard() {
                 }`}
               >
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-semibold text-xs text-foreground truncate">{exec.name}</span>
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-background">
-                    {exec.connectionRate}% Conn.
-                  </Badge>
+                  <div className="flex items-center gap-1.5 truncate">
+                    {exec.isAppUser ? (
+                      <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" title="SLI Smart App Active" />
+                    ) : (
+                      <span className="flex h-2 w-2 rounded-full bg-muted-foreground/40" />
+                    )}
+                    <span className="font-semibold text-xs text-foreground truncate">{exec.name}</span>
+                  </div>
+                  {exec.isAppUser && (
+                    <Badge variant="outline" className="text-[9px] px-1 py-0 bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300">
+                      Smart App
+                    </Badge>
+                  )}
                 </div>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Calls: <strong className="text-foreground">{exec.total}</strong></span>
-                  <span>Duration: <strong className="text-foreground font-mono">{exec.formattedDuration}</strong></span>
+                <div className="grid grid-cols-2 gap-1 text-[11px] text-muted-foreground mt-1">
+                  <span>In: <strong className="text-emerald-600 dark:text-emerald-400">{exec.incoming || 0}</strong></span>
+                  <span>Out: <strong className="text-blue-600 dark:text-blue-400">{exec.outgoing || 0}</strong></span>
+                  <span>Total: <strong className="text-foreground">{exec.total}</strong></span>
+                  <span>Talk: <strong className="text-foreground font-mono">{exec.formattedDuration}</strong></span>
                 </div>
               </div>
             ))}
@@ -705,8 +748,16 @@ export default function TeleCrmCallsDashboard() {
                             <span className="text-xs font-semibold text-foreground">
                               {call.call_type} Call
                             </span>
-                            <div className="text-[10px] text-muted-foreground font-mono">
-                              App Synced
+                            <div className="mt-0.5">
+                              {call.source === "sli_smart_app" ? (
+                                <span className="inline-flex items-center px-1.5 py-0 rounded text-[9px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                  📱 SLI Smart App
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-1.5 py-0 rounded text-[9px] font-semibold bg-blue-50 text-blue-700 border border-blue-300 dark:bg-blue-950/40 dark:text-blue-300">
+                                  ☁️ MyTelly IVR
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
