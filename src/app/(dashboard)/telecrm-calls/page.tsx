@@ -726,39 +726,50 @@ export default function TeleCrmCallsDashboard() {
             <span className="text-xs text-muted-foreground">🟢 Live Phone Tracking Active</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {executiveBreakdown.map((exec) => (
-              <div
-                key={exec.name}
-                onClick={() => setAgentFilter(agentFilter === exec.name ? "all" : exec.name)}
-                className={`cursor-pointer rounded-lg border p-3 transition-all hover:shadow-xs ${
-                  agentFilter === exec.name
-                    ? "border-primary bg-primary/5 ring-1 ring-primary"
-                    : "border-border bg-muted/30 hover:bg-muted/50"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-1.5 truncate">
-                    {exec.isAppUser ? (
-                      <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" title="SLI Smart App Active" />
+            {executiveBreakdown.map((exec) => {
+              const isOnline = mobileDevices.some((dev) =>
+                dev.name?.toLowerCase().includes(exec.name.toLowerCase()) ||
+                exec.name.toLowerCase().includes(dev.name?.toLowerCase())
+              );
+
+              return (
+                <div
+                  key={exec.name}
+                  onClick={() => setAgentFilter(agentFilter === exec.name ? "all" : exec.name)}
+                  className={`cursor-pointer rounded-lg border p-3 transition-all hover:shadow-xs ${
+                    agentFilter === exec.name
+                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                      : "border-border bg-muted/30 hover:bg-muted/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-1.5 truncate">
+                      {isOnline ? (
+                        <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" title="Live Phone Active" />
+                      ) : (
+                        <span className="flex h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-600" title="Offline / Logged Out" />
+                      )}
+                      <span className="font-semibold text-xs text-foreground truncate">{exec.name}</span>
+                    </div>
+                    {isOnline ? (
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300">
+                        🟢 Online
+                      </Badge>
                     ) : (
-                      <span className="flex h-2 w-2 rounded-full bg-muted-foreground/40" />
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400">
+                        ⚪ Offline
+                      </Badge>
                     )}
-                    <span className="font-semibold text-xs text-foreground truncate">{exec.name}</span>
                   </div>
-                  {exec.isAppUser && (
-                    <Badge variant="outline" className="text-[9px] px-1 py-0 bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300">
-                      Smart App
-                    </Badge>
-                  )}
+                  <div className="grid grid-cols-2 gap-1 text-[11px] text-muted-foreground mt-1">
+                    <span>In: <strong className="text-emerald-600 dark:text-emerald-400">{exec.incoming || 0}</strong></span>
+                    <span>Out: <strong className="text-blue-600 dark:text-blue-400">{exec.outgoing || 0}</strong></span>
+                    <span>Total: <strong className="text-foreground">{exec.total}</strong></span>
+                    <span>Talk: <strong className="text-foreground font-mono">{exec.formattedDuration}</strong></span>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-1 text-[11px] text-muted-foreground mt-1">
-                  <span>In: <strong className="text-emerald-600 dark:text-emerald-400">{exec.incoming || 0}</strong></span>
-                  <span>Out: <strong className="text-blue-600 dark:text-blue-400">{exec.outgoing || 0}</strong></span>
-                  <span>Total: <strong className="text-foreground">{exec.total}</strong></span>
-                  <span>Talk: <strong className="text-foreground font-mono">{exec.formattedDuration}</strong></span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
