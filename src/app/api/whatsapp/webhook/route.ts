@@ -23,6 +23,10 @@ import {
   sendLeadAlerts,
   MD_SIR_PHONE,
 } from '@/lib/whatsapp/lead-alert'
+import {
+  isAuthorizedManagement,
+  generateReportToken,
+} from '@/lib/reports/daily-token'
 
 // The `after()` callback in POST runs within this route's max duration.
 // Inbound processing can fan out to per-media Meta verification calls, so
@@ -646,6 +650,64 @@ async function processMessage(
       accessToken,
       mirrorMedia ? { accountId } : null
     )
+
+  // ============================================================
+  // INSTANT MANAGEMENT DAILY REPORT INTERCEPT
+  // If an authorized management person (MD Sir / GM / Directors) sends "report",
+  // "daily report", "status", reply immediately with a personalized 1-tap Magic Token link!
+  // Outside contacts sending "report" are completely ignored by this branch (zero data leak).
+  // ============================================================
+  const trimmedText = (contentText || '').trim().toLowerCase()
+  const isReportKeyword =
+    trimmedText === 'report' ||
+    trimmedText === 'daily report' ||
+    trimmedText === 'status' ||
+    trimmedText === 'today' ||
+    trimmedText === 'அறிக்கை'
+
+  if (isReportKeyword && phoneNumberId) {
+    const isMgmt = await isAuthorizedManagement(senderPhone)
+    if (isMgmt) {
+      try {
+        const token = generateReportToken(senderPhone, 7)
+        const recipientReportUrl = `https://sli-crm-rho.vercel.app/reports/daily?auth=${token}`
+        const todayDate = new Date().toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          timeZone: 'Asia/Kolkata',
+        })
+        const currentTime = new Date().toLocaleTimeString('en-GB', {
+          timeZone: 'Asia/Kolkata',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        })
+
+        const replyMsg =
+          `⚡ *ஸ்ரீ லக்ஷ்மி இண்டஸ்ட்ரீஸ் - நேரலை அறிக்கை (Live Instant Report)*\n` +
+          `📅 *தேதி:* ${todayDate} (${currentTime})\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `வணக்கம் Sir/Mam,\n\n` +
+          `தங்களின் நேரலை சேல்ஸ் எக்சிகியூட்டிவ் செயல்திறன் மற்றும் அழைப்புகள் அறிக்கை தயார்.\n\n` +
+          `👉 *நேரலை அறிக்கையை உடனடியாகத் திறக்க இங்கே கிளிக் செய்யவும் (Protected 1-Tap Access):*\n` +
+          `🔗 ${recipientReportUrl}\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━\n` +
+          `🔒 *Security Notice:* இந்த இணைப்பு தங்களின் பதிவு செய்யப்பட்ட எண்ணிற்கு மட்டுமே பாதுகாப்பாக உருவாக்கப்பட்டது.`
+
+        await sendTextMessage({
+          phoneNumberId,
+          accessToken,
+          to: senderPhone,
+          text: replyMsg,
+        })
+
+        console.log(`[webhook] Sent instant management report link to ${senderPhone}`)
+      } catch (err: any) {
+        console.error('[webhook] Failed to send instant management report:', err)
+      }
+    }
+  }
 
   // Resolve swipe-reply context if present. A missing parent is fine —
   // we just store NULL and the UI renders the message without a quote.

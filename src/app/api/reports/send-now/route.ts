@@ -3,6 +3,7 @@ import { getDailyReportConfig, saveDailyReportConfig } from "@/lib/reports/daily
 import { supabaseAdmin } from "@/lib/automations/admin-client";
 import { decrypt } from "@/lib/whatsapp/encryption";
 import { sendTextMessage } from "@/lib/whatsapp/meta-api";
+import { generateReportToken } from "@/lib/reports/daily-token";
 
 export async function POST(req: Request) {
   try {
@@ -38,13 +39,15 @@ export async function POST(req: Request) {
       timeZone: "Asia/Kolkata",
     });
 
-    const reportUrl = "https://sli-crm-rho.vercel.app/reports/daily";
     let sentCount = 0;
     const errors: string[] = [];
 
     for (const recipient of config.recipients) {
       const cleanPhone = recipient.phone.replace(/[^0-9]/g, "");
       if (!cleanPhone) continue;
+
+      const token = generateReportToken(cleanPhone, 7);
+      const recipientReportUrl = `https://sli-crm-rho.vercel.app/reports/daily?auth=${token}`;
 
       const isTamil = recipient.language === "ta";
 
@@ -55,7 +58,7 @@ export async function POST(req: Request) {
           `வணக்கம் ${recipient.name} Sir,\n\n` +
           `இன்றைய சேல்ஸ் டீம் My Telly அழைப்புகள், மெட்டா லீட்கள் மற்றும் வாட்ஸ்அப் என்குயரி அறிக்கை தயார்.\n\n` +
           `👉 *நேரலை மொபைல் அறிக்கையைப் பார்க்க கிளிக் செய்யவும்:*\n` +
-          `🔗 ${reportUrl}\n` +
+          `🔗 ${recipientReportUrl}\n` +
           `━━━━━━━━━━━━━━━━━━━━━━\n` +
           `✅ *அறிக்கையில் உள்ளவை:*\n` +
           `• 📞 My Telly அழைப்புகள் & ஆடியோ ரெக்கார்டிங்\n` +
@@ -67,7 +70,7 @@ export async function POST(req: Request) {
           `Hello ${recipient.name} Sir,\n\n` +
           `Today's Sales Team My Telly Calls, Meta Leads, and WhatsApp Enquiry Report is ready for review.\n\n` +
           `👉 *Click here to view the Live Mobile Report:*\n` +
-          `🔗 ${reportUrl}\n` +
+          `🔗 ${recipientReportUrl}\n` +
           `━━━━━━━━━━━━━━━━━━━━━━\n` +
           `✅ *Report Highlights:*\n` +
           `• 📞 My Telly Calls & Audio Recordings\n` +

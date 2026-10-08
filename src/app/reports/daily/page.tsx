@@ -89,6 +89,10 @@ export default function DailyReportPage() {
     new Date().toISOString().split("T")[0]
   );
   const [loading, setLoading] = useState<boolean>(true);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [pinInput, setPinInput] = useState<string>("");
+  const [pinError, setPinError] = useState<string | null>(null);
 
   const [executives, setExecutives] = useState<any[]>([]);
   const [stats, setStats] = useState<ExecutiveStat[]>([]);
@@ -97,10 +101,29 @@ export default function DailyReportPage() {
   const [conversations, setConversations] = useState<ConversationRecord[]>([]);
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlAuth = urlParams.get("auth") || urlParams.get("key");
+      if (urlAuth) {
+        localStorage.setItem("sli_report_auth", urlAuth);
+        setAuthToken(urlAuth);
+      } else {
+        const savedAuth = localStorage.getItem("sli_report_auth");
+        if (savedAuth) {
+          setAuthToken(savedAuth);
+        }
+      }
+    }
+  }, []);
+
   const fetchReportData = async () => {
     setLoading(true);
+    setAuthError(null);
     try {
-      const res = await fetch(`/api/reports/daily-data?date=${dateStr}&executive=${selectedExec}`);
+      const activeToken = authToken || (typeof window !== "undefined" ? localStorage.getItem("sli_report_auth") : null);
+      const authQuery = activeToken ? `&auth=${encodeURIComponent(activeToken)}` : "";
+      const res = await fetch(`/api/reports/daily-data?date=${dateStr}&executive=${selectedExec}${authQuery}`);
       const data = await res.json();
       if (data.ok) {
         setExecutives(data.executives || []);
@@ -108,8 +131,10 @@ export default function DailyReportPage() {
         setCalls(data.calls || []);
         setDeals(data.deals || []);
         setConversations(data.conversations || []);
+      } else if (data.requiresAuth || res.status === 401) {
+        setAuthError(data.error || "Protected Report");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to load report data:", err);
     } finally {
       setLoading(false);
@@ -118,7 +143,18 @@ export default function DailyReportPage() {
 
   useEffect(() => {
     fetchReportData();
-  }, [dateStr, selectedExec]);
+  }, [dateStr, selectedExec, authToken]);
+
+  const handlePinSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (pinInput.trim() === "2026") {
+      localStorage.setItem("sli_report_auth", "2026");
+      setAuthToken("2026");
+      setPinError(null);
+    } else {
+      setPinError("Invalid PIN! Management authorization required.");
+    }
+  };
 
   const sortedStats = useMemo(() => {
     return [...stats].sort((a, b) => {
@@ -203,6 +239,57 @@ export default function DailyReportPage() {
       hindiCampaign: "Hindi Snacks Machine",
     },
   }[lang];
+
+  if (authError) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 text-center shadow-2xl space-y-6">
+          <div className="h-16 w-16 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500">
+            <ShieldCheck className="h-8 w-8" />
+          </div>
+
+          <div className="space-y-1.5">
+            <h2 className="text-lg font-bold text-white tracking-tight">
+              SLI Management Protected Report
+            </h2>
+            <p className="text-xs text-slate-400">
+              Only authorized management & directors can access this live sales intelligence.
+            </p>
+          </div>
+
+          <form onSubmit={handlePinSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider block">
+                Enter 4-Digit Security PIN
+              </label>
+              <input
+                type="password"
+                maxLength={6}
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value)}
+                placeholder="• • • •"
+                className="w-full text-center text-2xl font-mono tracking-widest py-3 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-amber-500"
+              />
+              {pinError && (
+                <p className="text-xs text-red-400 font-medium">{pinError}</p>
+              )}
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold hover:from-amber-600 hover:to-amber-700 rounded-xl"
+            >
+              Unlock Report
+            </Button>
+          </form>
+
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            💡 Tip: Management numbers can also reply <span className="text-amber-400 font-semibold font-mono">"Report"</span> to the SLI WhatsApp Bot for an instant 1-tap direct magic link.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-16 font-sans">

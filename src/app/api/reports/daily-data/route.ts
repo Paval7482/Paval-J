@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/automations/admin-client";
+import { verifyReportToken } from "@/lib/reports/daily-token";
 
 function parseDurationToSeconds(durStr: string | null | undefined): number {
   if (!durStr) return 0;
@@ -15,6 +16,16 @@ function parseDurationToSeconds(durStr: string | null | undefined): number {
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
+  const token = searchParams.get("auth") || req.headers.get("x-report-auth");
+  const authCheck = verifyReportToken(token);
+
+  if (!authCheck.valid) {
+    return NextResponse.json(
+      { ok: false, error: "Access Denied: Protected Management Report", requiresAuth: true },
+      { status: 401 }
+    );
+  }
+
   const dateStr = searchParams.get("date") || new Date().toISOString().split("T")[0]; // YYYY-MM-DD
   const executiveId = searchParams.get("executive") || "all";
 
