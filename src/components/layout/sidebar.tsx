@@ -226,8 +226,20 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <ul className="flex flex-col gap-1">
             {navItems.map((item) => {
+              const isMarketingTeam =
+                profile?.email?.toLowerCase().includes("marketing") ||
+                profile?.email?.toLowerCase().includes("ads") ||
+                profile?.full_name?.toLowerCase().includes("marketing");
+
+              // For Digital Marketing Team: strictly show only Meta Ads, Meta Leads, and Notifications (zero sales/calling clutter)
+              if (isMarketingTeam) {
+                if (item.href !== "/meta-ads" && item.href !== "/meta-leads" && item.href !== "/notifications") {
+                  return null;
+                }
+              }
+
               const isAdminOrOwner = accountRole === "owner" || accountRole === "admin";
-              if (item.adminOnly && !isAdminOrOwner) return null;
+              if (item.adminOnly && !isAdminOrOwner && !isMarketingTeam) return null;
 
               const isActive =
                 pathname === item.href ||
@@ -340,6 +352,22 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 // from admins at a glance. Now everyone sees their
                 // role (with a colour cue) regardless of tier.
                 (() => {
+                  const isMarketingTeam =
+                    profile?.email?.toLowerCase().includes("marketing") ||
+                    profile?.email?.toLowerCase().includes("ads") ||
+                    profile?.full_name?.toLowerCase().includes("marketing");
+
+                  if (isMarketingTeam) {
+                    return (
+                      <span
+                        className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                      >
+                        <Sparkles className="size-3" />
+                        Digital Marketing
+                      </span>
+                    );
+                  }
+
                   const meta = ROLE_CHIP[accountRole];
                   const Icon = meta.icon;
                   return (

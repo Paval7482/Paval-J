@@ -163,11 +163,15 @@ export default function MetaAdsStudioPage() {
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [selectedCampaignName, setSelectedCampaignName] = useState<string>("");
   const [selectedCampaignStatus, setSelectedCampaignStatus] = useState<string>("ACTIVE");
+  const [selectedCampaignInsights, setSelectedCampaignInsights] = useState<any>(null);
+  const [inspectorInitialLevel, setInspectorInitialLevel] = useState<"campaign" | "adset" | "ad" | "jadhagam">("campaign");
 
-  const handleOpenInspector = (camp: MetaCampaign) => {
+  const handleOpenInspector = (camp: MetaCampaign, initialTab: "campaign" | "jadhagam" = "campaign") => {
     setSelectedCampaignId(camp.id);
     setSelectedCampaignName(camp.name);
     setSelectedCampaignStatus(camp.status);
+    setSelectedCampaignInsights(camp.insights);
+    setInspectorInitialLevel(initialTab);
     setInspectorOpen(true);
   };
 
@@ -755,15 +759,6 @@ export default function MetaAdsStudioPage() {
           <span className="text-xs text-muted-foreground hidden md:inline">
             Sri Lakshmi Paid Media Console: Seamlessly manage Meta and Google Ads
           </span>
-          <a
-            href="/owner-ads"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all ml-1"
-          >
-            <Smartphone className="h-3.5 w-3.5" />
-            Owner Mobile View (PIN)
-          </a>
         </div>
         <div className="flex items-center gap-1.5 p-1 rounded-xl bg-muted/60 border border-border/60">
           <button
@@ -2692,7 +2687,124 @@ export default function MetaAdsStudioPage() {
               </Badge>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
+              {/* Mobile Card List (Screens < 768px): Clean, compact, readable for Owners & Marketing */}
+              <div className="block md:hidden space-y-3">
+                {(!bundle?.campaigns || bundle.campaigns.length === 0) ? (
+                  <div className="p-6 text-center text-muted-foreground rounded-2xl border border-dashed border-border/70 bg-muted/20">
+                    {loading || syncing ? (
+                      <div className="flex flex-col items-center justify-center gap-2 py-4">
+                        <RefreshCw className="h-6 w-6 animate-spin text-primary" />
+                        <p className="font-semibold text-xs text-foreground">Syncing Live Meta Campaigns...</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-1.5 py-4">
+                        <Rocket className="h-6 w-6 text-muted-foreground/40" />
+                        <p className="font-semibold text-xs text-foreground">No Published Campaigns Found</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  bundle.campaigns.map((camp) => (
+                    <div
+                      key={camp.id}
+                      className="rounded-2xl border border-border/80 bg-card p-3.5 shadow-sm space-y-3 hover:border-primary/40 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {camp.status === "ACTIVE" ? (
+                              <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[10px] h-5 px-1.5 font-bold">
+                                ACTIVE
+                              </Badge>
+                            ) : camp.status === "ARCHIVED" ? (
+                              <Badge variant="outline" className="text-muted-foreground/70 border-muted text-[10px] h-5 px-1.5">
+                                ARCHIVED
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-bold">
+                                PAUSED
+                              </Badge>
+                            )}
+                            <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
+                              {camp.objective}
+                            </span>
+                          </div>
+                          <p className="font-bold text-sm text-foreground line-clamp-2 leading-snug">
+                            {camp.name}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 4-Stat Compact Grid */}
+                      <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted/30 p-2.5 text-xs border border-border/40">
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Spend</p>
+                          <p className="font-extrabold text-foreground text-sm">
+                            ₹{camp.insights?.spend?.toLocaleString("en-IN") || "0"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Leads</p>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenLeads(camp)}
+                            className="font-extrabold text-primary hover:underline text-sm flex items-center gap-1"
+                          >
+                            <Users className="h-3 w-3" />
+                            {camp.insights?.results || 0}
+                          </button>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Cost / Lead</p>
+                          <p className="font-bold text-amber-500 text-xs">
+                            ₹{camp.insights?.cost_per_result || 0}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Daily Budget</p>
+                          <p className="font-mono text-xs font-semibold text-foreground">
+                            ₹{camp.daily_budget ? Math.round(Number(camp.daily_budget) / 100) : "N/A"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Mobile Actions */}
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="flex-1 h-8 text-xs font-bold gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-sm"
+                          onClick={() => handleOpenInspector(camp, "jadhagam")}
+                        >
+                          <Sparkles className="h-3.5 w-3.5" />
+                          View Ad Jadhagam
+                        </Button>
+                        {camp.status !== "ARCHIVED" && (
+                          <Button
+                            variant={camp.status === "ACTIVE" ? "outline" : "secondary"}
+                            size="sm"
+                            className="h-8 text-xs px-2.5 font-semibold shrink-0"
+                            onClick={() => handleToggleCampaign(camp.id, camp.status)}
+                          >
+                            {camp.status === "ACTIVE" ? (
+                              <>
+                                <Pause className="h-3 w-3 mr-1" /> Pause
+                              </>
+                            ) : (
+                              <>
+                                <Play className="h-3 w-3 mr-1" /> Play
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Desktop Table View (Screens >= 768px) */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="border-b border-border bg-muted/40 text-muted-foreground">
                     <tr>
@@ -2782,7 +2894,16 @@ export default function MetaAdsStudioPage() {
                             ₹{camp.daily_budget ? Math.round(Number(camp.daily_budget) / 100) : "N/A"}
                           </td>
                           <td className="p-3 text-right">
-                            <div className="flex items-center justify-end">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs gap-1 font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                                onClick={() => handleOpenInspector(camp, "jadhagam")}
+                                title="Open 360° Ad Jadhagam"
+                              >
+                                <Sparkles className="h-3 w-3" /> Jadhagam
+                              </Button>
                               {camp.status === "ARCHIVED" ? (
                                 <Badge variant="outline" className="h-7 text-xs px-2 text-muted-foreground border-border/60">
                                   Archived
@@ -3853,6 +3974,8 @@ export default function MetaAdsStudioPage() {
         campaignId={selectedCampaignId}
         initialCampaignName={selectedCampaignName}
         initialStatus={selectedCampaignStatus}
+        campaignInsights={selectedCampaignInsights}
+        initialLevel={inspectorInitialLevel}
         onUpdated={fetchInsights}
       />
 

@@ -4,7 +4,7 @@
     "name": "Phase I",
     "account_status": 1,
     "currency": "INR",
-    "balance": "94167",
+    "balance": "122881",
     "spend_cap": "0",
     "amount_spent": "310633.76",
     "min_daily_budget": "96.73"
@@ -18,14 +18,14 @@
       "created_time": "2026-09-09T21:48:20+0530",
       "start_time": "2026-09-10T18:00:00+0530",
       "insights": {
-        "spend": 18251.03,
-        "impressions": 297657,
-        "clicks": 5745,
-        "cpc": 3.176855,
-        "cpm": 61.315642,
-        "ctr": 1.930074,
-        "results": 983,
-        "cost_per_result": 18.57,
+        "spend": 18348.73,
+        "impressions": 299426,
+        "clicks": 5791,
+        "cpc": 3.168491,
+        "cpm": 61.279682,
+        "ctr": 1.934034,
+        "results": 991,
+        "cost_per_result": 18.52,
         "result_type": "WhatsApp Chat"
       }
     },
@@ -56,14 +56,14 @@
       "created_time": "2026-09-09T21:18:48+0530",
       "start_time": "2026-09-10T06:06:00+0530",
       "insights": {
-        "spend": 37117.08,
-        "impressions": 568837,
-        "clicks": 11663,
-        "cpc": 3.182464,
-        "cpm": 65.250819,
-        "ctr": 2.050324,
-        "results": 548,
-        "cost_per_result": 67.73,
+        "spend": 37281.69,
+        "impressions": 571194,
+        "clicks": 11739,
+        "cpc": 3.175883,
+        "cpm": 65.269751,
+        "ctr": 2.055169,
+        "results": 552,
+        "cost_per_result": 67.54,
         "result_type": "Lead Form"
       }
     },
@@ -727,14 +727,14 @@
     }
   ],
   "overview": {
-    "total_spend_30d": 314408.7,
-    "total_leads_30d": 6123,
-    "total_chats_30d": 3396,
+    "total_spend_30d": 314662.71,
+    "total_leads_30d": 6127,
+    "total_chats_30d": 3406,
     "total_calls_30d": 1302,
-    "avg_cpl": 29.1,
-    "wallet_balance": 941.67,
-    "saves_count": 2893,
-    "shares_count": 2076
+    "avg_cpl": 29,
+    "wallet_balance": 1228.81,
+    "saves_count": 2896,
+    "shares_count": 2077
   },
   "state_breakdown": [
     {
@@ -989,5 +989,5 @@
     "post_reactions": 4085
   },
   "is_cached": false,
-  "cached_at": "2026-10-17T08:21:47.251Z"
+  "cached_at": "2026-10-17T11:04:08.139Z"
 }
