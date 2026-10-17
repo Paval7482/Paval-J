@@ -229,7 +229,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               const isMarketingTeam =
                 profile?.email?.toLowerCase().includes("marketing") ||
                 profile?.email?.toLowerCase().includes("ads") ||
-                profile?.full_name?.toLowerCase().includes("marketing");
+                profile?.email?.toLowerCase().includes("phase") ||
+                profile?.full_name?.toLowerCase().includes("marketing") ||
+                profile?.full_name?.toLowerCase().includes("phase");
 
               // For Digital Marketing Team: strictly show only Meta Ads, Meta Leads, and Notifications (zero sales/calling clutter)
               if (isMarketingTeam) {
@@ -355,7 +357,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                   const isMarketingTeam =
                     profile?.email?.toLowerCase().includes("marketing") ||
                     profile?.email?.toLowerCase().includes("ads") ||
-                    profile?.full_name?.toLowerCase().includes("marketing");
+                    profile?.email?.toLowerCase().includes("phase") ||
+                    profile?.full_name?.toLowerCase().includes("marketing") ||
+                    profile?.full_name?.toLowerCase().includes("phase");
 
                   if (isMarketingTeam) {
                     return (

@@ -56,6 +56,8 @@ function LoginPageInner() {
       admin: "admin@srilakshmiindustries.co.in",
       marketing: "marketing@srilakshmiindustries.co.in",
       ads: "marketing@srilakshmiindustries.co.in",
+      phase2: "phase2@srilakshmiindustries.co.in",
+      phaseii: "phase2@srilakshmiindustries.co.in",
     };
 
     const cleanEmail = rawInput.includes("@")
@@ -81,7 +83,7 @@ function LoginPageInner() {
     // back to /login — which looks like the page "just refreshing"
     // instead of signing in (issue #365). Mirrors the deliberate full
     // reload the invite-accept flow already uses in join/[token].
-    const isMarketing = cleanEmail.startsWith("marketing") || cleanEmail.includes("ads");
+    const isMarketing = cleanEmail.startsWith("marketing") || cleanEmail.includes("ads") || cleanEmail.includes("phase");
     const destination = inviteToken
       ? `/join/${encodeURIComponent(inviteToken)}`
       : isMarketing
