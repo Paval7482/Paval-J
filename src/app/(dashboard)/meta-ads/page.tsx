@@ -93,6 +93,7 @@ import { LeadFormBuilderModal } from "@/components/meta-ads/LeadFormBuilderModal
 import { CampaignInspectorModal } from "@/components/meta-ads/CampaignInspectorModal";
 import { CampaignLeadsModal } from "@/components/meta-ads/CampaignLeadsModal";
 import { AudienceIntelligenceStudio, AudienceIntelligenceSidebar } from "@/components/meta-ads/AudienceIntelligenceStudio";
+import { MetaAdsMobileApp } from "@/components/meta-ads/MetaAdsMobileApp";
 import { GoogleAdsStudio } from "@/components/google-ads/GoogleAdsStudio";
 import { InfoTip } from "@/components/ui/info-tip";
 import {
@@ -750,8 +751,8 @@ export default function MetaAdsStudioPage() {
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Cross-Platform Channel Switcher */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-3 rounded-2xl border border-border/80 bg-card/90 backdrop-blur-xl shadow-sm ring-1 ring-border/40">
+      {/* Cross-Platform Channel Switcher (Desktop) */}
+      <div className="hidden md:flex flex-col sm:flex-row items-center justify-between gap-4 p-3 rounded-2xl border border-border/80 bg-card/90 backdrop-blur-xl shadow-sm ring-1 ring-border/40">
         <div className="flex items-center gap-2.5">
           <Badge variant="outline" className="text-xs uppercase tracking-wider font-bold bg-muted px-2.5 py-1">
             Omnichannel Ads Engine
@@ -794,13 +795,35 @@ export default function MetaAdsStudioPage() {
         <GoogleAdsStudio />
       ) : (
         <>
-          {/* Top Hero Banner */}
-          <div className="flex flex-col gap-4 rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl p-6 shadow-sm ring-1 ring-border/40 luxury-card md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Sparkles className="h-6 w-6" />
-                </div>
+          {/* Mobile View: 100% Native Meta Ads Mobile App Experience (Matching Screenshot 5) */}
+          <div className="block md:hidden">
+            <MetaAdsMobileApp
+              bundle={bundle}
+              loading={loading}
+              syncing={syncing}
+              datePreset={datePreset}
+              setDatePreset={setDatePreset}
+              fetchInsights={fetchInsights}
+              handleToggleCampaign={handleToggleCampaign}
+              onOpenInspector={handleOpenInspector}
+              onOpenLeads={handleOpenLeads}
+              onOpenLauncher={() => {
+                setActiveTab("launcher");
+                toast.info("Opening Smart Ad Launcher");
+              }}
+              onOpenToken={() => setTokenModalOpen(true)}
+            />
+          </div>
+
+          {/* Desktop Studio Experience: Full Agency Command Center (Screens >= 768px) */}
+          <div className="hidden md:block space-y-6">
+            {/* Top Hero Banner */}
+            <div className="flex flex-col gap-4 rounded-3xl border border-border/80 bg-card/75 backdrop-blur-xl p-6 shadow-sm ring-1 ring-border/40 luxury-card md:flex-row md:items-center md:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Sparkles className="h-6 w-6" />
+                  </div>
             <div>
               <h1 className="text-2xl font-bold tracking-tight">Sri Lakshmi Meta Ads AI Studio</h1>
               <p className="text-xs text-muted-foreground sm:text-sm">
@@ -3412,6 +3435,7 @@ export default function MetaAdsStudioPage() {
           </Card>
         </TabsContent>
       </Tabs>
+    </div>
 
       {/* Interactive Token Modal Dialog */}
       <Dialog open={tokenModalOpen} onOpenChange={setTokenModalOpen}>
