@@ -27,6 +27,7 @@ import {
   Workflow,
   X,
   Zap,
+  Sparkles,
 } from "lucide-react";
 import type { AccountRole } from "@/lib/auth/roles";
 
@@ -98,6 +99,7 @@ const navItems: NavItem[] = [
   { href: "/calls", labelKey: "calls", icon: PhoneCall },
   { href: "/telecrm-calls", labelKey: "telecrmCalls", icon: PhoneCall },
   { href: "/meta-leads", labelKey: "metaLeads", icon: Radio },
+  { href: "/meta-ads", labelKey: "metaAds", icon: Sparkles },
   { href: "/notifications", labelKey: "notifications", icon: Bell },
   { href: "/contacts", labelKey: "contacts", icon: Users },
   { href: "/pipelines", labelKey: "pipelines", icon: GitBranch },
@@ -247,10 +249,10 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     href={item.href}
                     className={cn(
                       // Taller on mobile so fingers can hit the row reliably (≥44px).
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2",
+                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 lg:py-2",
                       isActive
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                        ? "bg-primary/15 text-primary font-semibold shadow-sm ring-1 ring-primary/25 pill-glow"
+                        : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
                     )}
                   >
                     <item.icon className="h-4 w-4" />
@@ -298,10 +300,10 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                       <Link
                         href={item.href}
                         className={cn(
-                          "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2",
+                          "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 lg:py-2",
                           isActive
-                            ? "bg-primary/10 text-primary"
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                            ? "bg-primary/15 text-primary font-semibold shadow-sm ring-1 ring-primary/25 pill-glow"
+                            : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
                         )}
                       >
                         <item.icon className="h-4 w-4" />

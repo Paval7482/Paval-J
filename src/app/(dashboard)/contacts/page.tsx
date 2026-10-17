@@ -98,6 +98,7 @@ export default function ContactsPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [agentFilter, setAgentFilter] = useState<string>('all');
+  const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [members, setMembers] = useState<TeamMember[]>([]);
 
   // Modals
@@ -128,6 +129,21 @@ export default function ContactsPage() {
   useEffect(() => {
     async function loadMembers() {
       try {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, account_role')
+          .order('full_name');
+
+        if (profs && profs.length > 0) {
+          const formatted: TeamMember[] = profs.map((p) => ({
+            user_id: p.user_id,
+            full_name: p.full_name || 'Executive',
+            role: p.account_role || 'agent',
+          }));
+          setMembers(formatted);
+          return;
+        }
+
         const res = await fetch('/api/account/members');
         const data = await res.json();
         if (data.ok && Array.isArray(data.members)) {
@@ -138,7 +154,7 @@ export default function ContactsPage() {
       }
     }
     loadMembers();
-  }, []);
+  }, [supabase]);
 
   const fetchTags = useCallback(async () => {
     const { data } = await supabase.from('tags').select('*');
@@ -168,72 +184,48 @@ export default function ContactsPage() {
       let assignedContactIds: string[] | null = null;
 
       if (!isAdminOrOwner) {
-        const [convRes, callRes] = await Promise.all([
+        const [convRes, dealRes] = await Promise.all([
           supabase.from('conversations').select('contact_id').eq('assigned_agent_id', user.id),
-          supabase.from('call_logs').select('customer_number').eq('assigned_to', user.id),
+          supabase.from('deals').select('contact_id').eq('user_id', user.id),
         ]);
 
         const ids = new Set<string>();
         convRes.data?.forEach((c) => {
           if (c.contact_id) ids.add(c.contact_id);
         });
-
-        // Also resolve customer numbers from call logs to contact IDs if any
-        if (callRes.data && callRes.data.length > 0) {
-          const numbers = callRes.data.map((c) => c.customer_number).filter(Boolean);
-          const { data: matchedContacts } = await supabase
-            .from('contacts')
-            .select('id')
-            .in('phone', numbers);
-          matchedContacts?.forEach((mc) => ids.add(mc.id));
-        }
+        dealRes.data?.forEach((d) => {
+          if (d.contact_id) ids.add(d.contact_id);
+        });
 
         assignedContactIds = Array.from(ids);
       } else if (agentFilter !== 'all') {
         // Admin selected a specific agent filter
-        const { data: agentConvs } = await supabase
-          .from('conversations')
-          .select('contact_id')
-          .eq('assigned_agent_id', agentFilter);
-        assignedContactIds = agentConvs?.map((c) => c.contact_id).filter(Boolean) as string[];
+        const [agentConvs, agentDeals] = await Promise.all([
+          supabase.from('conversations').select('contact_id').eq('assigned_agent_id', agentFilter),
+          supabase.from('deals').select('contact_id').eq('user_id', agentFilter),
+        ]);
+
+        const ids = new Set<string>();
+        agentConvs.data?.forEach((c) => {
+          if (c.contact_id) ids.add(c.contact_id);
+        });
+        agentDeals.data?.forEach((d) => {
+          if (d.contact_id) ids.add(d.contact_id);
+        });
+
+        assignedContactIds = Array.from(ids);
       }
 
-      // If Executive has 0 assigned leads, show empty result
-      if (assignedContactIds !== null && assignedContactIds.length === 0) {
-        setContacts([]);
-        setTotalCount(0);
-        setLoading(false);
-        return;
-      }
-
+      // Step 2: Query Contacts based on Source & Assignment
       let contactRows: Contact[] = [];
       let count = 0;
 
-      if (selectedTagIds.length > 0) {
-        const { data, error } = await supabase.rpc('filter_contacts_by_tags', {
-          p_tag_ids: selectedTagIds,
-          p_search: term || null,
-          p_limit: PAGE_SIZE,
-          p_offset: from,
-        });
-        if (seq !== fetchSeq.current) return;
-        if (error) throw error;
-        const rows = (data ?? []) as { contact: Contact; total_count: number }[];
-        let rawContacts = rows.map((r) => r.contact);
-        if (assignedContactIds !== null) {
-          rawContacts = rawContacts.filter((c) => assignedContactIds!.includes(c.id));
-        }
-        contactRows = rawContacts;
-        count = rows.length > 0 ? Number(rows[0].total_count) : 0;
-      } else {
+      if (sourceFilter === 'whatsapp' && assignedContactIds === null) {
+        // WhatsApp Direct Chats: Inner join with conversations
         let query = supabase
           .from('contacts')
-          .select('*', { count: 'exact' })
+          .select('*, conversations!inner(id)', { count: 'exact' })
           .order('updated_at', { ascending: false });
-
-        if (assignedContactIds !== null && !term) {
-          query = query.in('id', assignedContactIds);
-        }
 
         if (term) {
           const like = `%${term}%`;
@@ -249,8 +241,131 @@ export default function ContactsPage() {
         const { data, count: exactCount, error } = await query.range(from, to);
         if (seq !== fetchSeq.current) return;
         if (error) throw error;
-        contactRows = data ?? [];
+        contactRows = (data ?? []).map((row: any) => {
+          const { conversations, ...rest } = row;
+          return rest as Contact;
+        });
         count = exactCount ?? 0;
+      } else if (sourceFilter === 'meta' && assignedContactIds === null) {
+        // Meta Campaign Leads: Inner join with deals
+        let query = supabase
+          .from('contacts')
+          .select('*, deals!inner(id, title)', { count: 'exact' })
+          .ilike('deals.title', '%Meta%')
+          .order('updated_at', { ascending: false });
+
+        if (term) {
+          const like = `%${term}%`;
+          const digits = term.replace(/\D/g, '');
+          if (digits.length >= 4) {
+            const last10 = digits.slice(-10);
+            query = query.or(`name.ilike.${like},phone.ilike.${like},phone.ilike.%${digits}%,phone.ilike.%${last10}%,email.ilike.${like}`);
+          } else {
+            query = query.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
+          }
+        }
+
+        const { data, count: exactCount, error } = await query.range(from, to);
+        if (seq !== fetchSeq.current) return;
+        if (error) throw error;
+        contactRows = (data ?? []).map((row: any) => {
+          const { deals, ...rest } = row;
+          return rest as Contact;
+        });
+        count = exactCount ?? 0;
+      } else {
+        // Standard or Assigned + Source Filtered
+        let sourceContactIds: Set<string> | null = null;
+        if (sourceFilter === 'meta') {
+          const { data: metaDeals } = await supabase
+            .from('deals')
+            .select('contact_id')
+            .ilike('title', '%Meta%');
+          const ids = new Set<string>();
+          metaDeals?.forEach((d) => {
+            if (d.contact_id) ids.add(d.contact_id);
+          });
+          sourceContactIds = ids;
+        } else if (sourceFilter === 'mytelly') {
+          const { data: mytellyNotes } = await supabase
+            .from('contact_notes')
+            .select('contact_id')
+            .or('note_text.ilike.%MyTelly%,note_text.ilike.%Call Status:%');
+          const ids = new Set<string>();
+          mytellyNotes?.forEach((n) => {
+            if (n.contact_id) ids.add(n.contact_id);
+          });
+          sourceContactIds = ids;
+        } else if (sourceFilter === 'whatsapp') {
+          const { data: convs } = await supabase
+            .from('conversations')
+            .select('contact_id');
+          const ids = new Set<string>();
+          convs?.forEach((c) => {
+            if (c.contact_id) ids.add(c.contact_id);
+          });
+          sourceContactIds = ids;
+        }
+
+        let targetContactIds: string[] | null = null;
+        if (assignedContactIds !== null && sourceContactIds !== null) {
+          targetContactIds = assignedContactIds.filter((id) => sourceContactIds!.has(id));
+        } else if (assignedContactIds !== null) {
+          targetContactIds = assignedContactIds;
+        } else if (sourceContactIds !== null) {
+          targetContactIds = Array.from(sourceContactIds);
+        }
+
+        if (targetContactIds !== null && targetContactIds.length === 0) {
+          setContacts([]);
+          setTotalCount(0);
+          setLoading(false);
+          return;
+        }
+
+        if (selectedTagIds.length > 0) {
+          const { data, error } = await supabase.rpc('filter_contacts_by_tags', {
+            p_tag_ids: selectedTagIds,
+            p_search: term || null,
+            p_limit: PAGE_SIZE,
+            p_offset: from,
+          });
+          if (seq !== fetchSeq.current) return;
+          if (error) throw error;
+          const rows = (data ?? []) as { contact: Contact; total_count: number }[];
+          let rawContacts = rows.map((r) => r.contact);
+          if (targetContactIds !== null) {
+            rawContacts = rawContacts.filter((c) => targetContactIds!.includes(c.id));
+          }
+          contactRows = rawContacts;
+          count = rows.length > 0 ? Number(rows[0].total_count) : 0;
+        } else {
+          let query = supabase
+            .from('contacts')
+            .select('*', { count: 'exact' })
+            .order('updated_at', { ascending: false });
+
+          if (targetContactIds !== null) {
+            query = query.in('id', targetContactIds);
+          }
+
+          if (term) {
+            const like = `%${term}%`;
+            const digits = term.replace(/\D/g, '');
+            if (digits.length >= 4) {
+              const last10 = digits.slice(-10);
+              query = query.or(`name.ilike.${like},phone.ilike.${like},phone.ilike.%${digits}%,phone.ilike.%${last10}%,email.ilike.${like}`);
+            } else {
+              query = query.or(`name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
+            }
+          }
+
+          const { data, count: exactCount, error } = await query.range(from, to);
+          if (seq !== fetchSeq.current) return;
+          if (error) throw error;
+          contactRows = data ?? [];
+          count = exactCount ?? 0;
+        }
       }
 
       setTotalCount(count);
@@ -263,12 +378,13 @@ export default function ContactsPage() {
 
       const contactIds = contactRows.map((c) => c.id);
 
-      // Fetch tags, custom values, and assigned conversations in parallel
-      const [contactTagsRes, customFieldsRes, customValuesRes, convsRes] = await Promise.all([
+      // Fetch tags, custom values, assigned conversations, and deals in parallel
+      const [contactTagsRes, customFieldsRes, customValuesRes, convsRes, dealsRes] = await Promise.all([
         supabase.from('contact_tags').select('contact_id, tag_id').in('contact_id', contactIds),
         supabase.from('custom_fields').select('id, field_name'),
         supabase.from('contact_custom_values').select('*').in('contact_id', contactIds),
         supabase.from('conversations').select('contact_id, assigned_agent_id').in('contact_id', contactIds),
+        supabase.from('deals').select('contact_id, user_id').in('contact_id', contactIds),
       ]);
 
       if (seq !== fetchSeq.current) return;
@@ -290,9 +406,14 @@ export default function ContactsPage() {
       });
 
       const assignedAgentByContact: Record<string, string> = {};
+      dealsRes.data?.forEach((d) => {
+        if (d.contact_id && d.user_id && memberMap[d.user_id]) {
+          assignedAgentByContact[d.contact_id] = memberMap[d.user_id];
+        }
+      });
       convsRes.data?.forEach((cv) => {
-        if (cv.contact_id && cv.assigned_agent_id) {
-          assignedAgentByContact[cv.contact_id] = memberMap[cv.assigned_agent_id] || 'Executive';
+        if (cv.contact_id && cv.assigned_agent_id && memberMap[cv.assigned_agent_id]) {
+          assignedAgentByContact[cv.contact_id] = memberMap[cv.assigned_agent_id];
         }
       });
 
@@ -337,7 +458,7 @@ export default function ContactsPage() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, page, search, selectedTagIds, tagsMap, agentFilter, isAdminOrOwner, user, members, t]);
+  }, [supabase, page, search, selectedTagIds, tagsMap, agentFilter, sourceFilter, isAdminOrOwner, user, members, t]);
 
   useEffect(() => {
     fetchTags();
@@ -597,10 +718,10 @@ export default function ContactsPage() {
   const hasNext = page < totalPages - 1;
   const hasPrev = page > 0;
 
-  const allTags = Object.values(tagsMap).sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
-  const hasActiveFilters = search.trim().length > 0 || selectedTagIds.length > 0 || agentFilter !== 'all';
+  const allTags = Object.values(tagsMap)
+    .filter((t) => !t.name.startsWith('__'))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const hasActiveFilters = search.trim().length > 0 || selectedTagIds.length > 0 || agentFilter !== 'all' || sourceFilter !== 'all';
 
   function toggleTagFilter(tagId: string) {
     setSelectedTagIds((prev) =>
@@ -612,6 +733,7 @@ export default function ContactsPage() {
   function clearTagFilters() {
     setSelectedTagIds([]);
     setAgentFilter('all');
+    setSourceFilter('all');
     setPage(0);
   }
 
@@ -682,6 +804,22 @@ export default function ContactsPage() {
               className="pl-8 bg-card border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
+
+          {/* Lead Source Filter (Available for Both Admin and Executive) */}
+          <select
+            value={sourceFilter}
+            onChange={(e) => {
+              setSourceFilter(e.target.value);
+              setPage(0);
+            }}
+            aria-label="Filter by Lead Source"
+            className="h-9 rounded-md border border-input bg-card px-3 py-1 text-xs font-semibold shadow-sm focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+          >
+            <option value="all">⚡ All Lead Sources</option>
+            <option value="meta">🎯 Meta Campaign Leads</option>
+            <option value="mytelly">📞 MyTelly IVR Calls</option>
+            <option value="whatsapp">💬 WhatsApp Direct Chats</option>
+          </select>
 
           {/* Admin Executive Filter */}
           {isAdminOrOwner ? (

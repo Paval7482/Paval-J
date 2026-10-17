@@ -1,0 +1,993 @@
+{
+  "account": {
+    "id": "act_245155721099304",
+    "name": "Phase I",
+    "account_status": 1,
+    "currency": "INR",
+    "balance": "94167",
+    "spend_cap": "0",
+    "amount_spent": "310633.76",
+    "min_daily_budget": "96.73"
+  },
+  "campaigns": [
+    {
+      "id": "120254570151630699",
+      "name": "Hindi whats app  Campaign10/09/2026",
+      "status": "ACTIVE",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-09-09T21:48:20+0530",
+      "start_time": "2026-09-10T18:00:00+0530",
+      "insights": {
+        "spend": 18251.03,
+        "impressions": 297657,
+        "clicks": 5745,
+        "cpc": 3.176855,
+        "cpm": 61.315642,
+        "ctr": 1.930074,
+        "results": 983,
+        "cost_per_result": 18.57,
+        "result_type": "WhatsApp Chat"
+      }
+    },
+    {
+      "id": "120254570056260699",
+      "name": "murukku machine tamil 09\\09/2026",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-09-09T21:23:27+0530",
+      "start_time": "2026-09-10T06:00:00+0530",
+      "insights": {
+        "spend": 17606.35,
+        "impressions": 387836,
+        "clicks": 6213,
+        "cpc": 2.833792,
+        "cpm": 45.396379,
+        "ctr": 1.601966,
+        "results": 335,
+        "cost_per_result": 52.56,
+        "result_type": "Lead Form"
+      }
+    },
+    {
+      "id": "120254566138080699",
+      "name": "Hindi update  Campaign10/09/2026",
+      "status": "ACTIVE",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-09-09T21:18:48+0530",
+      "start_time": "2026-09-10T06:06:00+0530",
+      "insights": {
+        "spend": 37117.08,
+        "impressions": 568837,
+        "clicks": 11663,
+        "cpc": 3.182464,
+        "cpm": 65.250819,
+        "ctr": 2.050324,
+        "results": 548,
+        "cost_per_result": 67.73,
+        "result_type": "Lead Form"
+      }
+    },
+    {
+      "id": "120254193319050699",
+      "name": "murukku machine tamil 19/08/2026",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-08-19T18:21:56+0530",
+      "start_time": "2026-08-19T18:21:57+0530",
+      "insights": {
+        "spend": 10572.46,
+        "impressions": 228511,
+        "clicks": 4457,
+        "cpc": 2.372102,
+        "cpm": 46.266744,
+        "ctr": 1.950453,
+        "results": 259,
+        "cost_per_result": 40.82,
+        "result_type": "Lead Form"
+      }
+    },
+    {
+      "id": "120254191589570699",
+      "name": "Hindi update  Campaign 19/08/2026",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-08-19T16:37:57+0530",
+      "start_time": "2026-08-19T16:37:58+0530",
+      "insights": {
+        "spend": 21309.55,
+        "impressions": 369766,
+        "clicks": 9109,
+        "cpc": 2.339395,
+        "cpm": 57.629825,
+        "ctr": 2.46345,
+        "results": 417,
+        "cost_per_result": 51.1,
+        "result_type": "Lead Form"
+      }
+    },
+    {
+      "id": "120253682628030699",
+      "name": "Hindi update  Campaign 31/07/2026",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-07-31T13:11:30+0530",
+      "start_time": "2026-07-31T13:15:00+0530",
+      "insights": {
+        "spend": 2569.23,
+        "impressions": 38906,
+        "clicks": 997,
+        "cpc": 2.576961,
+        "cpm": 66.036858,
+        "ctr": 2.562587,
+        "results": 42,
+        "cost_per_result": 61.17,
+        "result_type": "Lead Form"
+      }
+    },
+    {
+      "id": "120253314476860699",
+      "name": "Hiring Leads Campaign16/07/2026",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-07-16T21:54:45+0530",
+      "start_time": "2026-07-16T21:54:46+0530",
+      "insights": {
+        "spend": 9484.1,
+        "impressions": 181148,
+        "clicks": 2393,
+        "cpc": 3.963268,
+        "cpm": 52.355532,
+        "ctr": 1.321019,
+        "results": 91,
+        "cost_per_result": 104.22,
+        "result_type": "Lead Form"
+      }
+    },
+    {
+      "id": "120253228503910699",
+      "name": "Hiring Leads Campaign14/07/2026",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-07-14T13:24:28+0530",
+      "start_time": "2026-07-14T13:30:00+0530",
+      "insights": {
+        "spend": 3339.38,
+        "impressions": 61777,
+        "clicks": 978,
+        "cpc": 3.414499,
+        "cpm": 54.055393,
+        "ctr": 1.583113,
+        "results": 115,
+        "cost_per_result": 29.04,
+        "result_type": "Lead Form"
+      }
+    },
+    {
+      "id": "120251263793850699",
+      "name": "New Sales campaign",
+      "status": "ARCHIVED",
+      "objective": "OUTCOME_SALES",
+      "daily_budget": "100000",
+      "created_time": "2026-06-09T11:35:19+0530",
+      "start_time": "2026-06-09T11:36:28+0530"
+    },
+    {
+      "id": "120251166578230699",
+      "name": "Hindi update  Campaign 07/06/2026",
+      "status": "ARCHIVED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-06-07T15:44:24+0530",
+      "start_time": "2026-06-07T15:44:25+0530",
+      "insights": {
+        "spend": 77.38,
+        "impressions": 893,
+        "clicks": 28,
+        "cpc": 2.763571,
+        "cpm": 86.651736,
+        "ctr": 3.135498,
+        "results": 1,
+        "cost_per_result": 77.38,
+        "result_type": "Lead Form"
+      }
+    },
+    {
+      "id": "120251164722780699",
+      "name": "murukku machine Hindi Campaign 07/06/2026",
+      "status": "ARCHIVED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-06-07T14:35:15+0530",
+      "start_time": "2026-06-07T14:35:16+0530",
+      "insights": {
+        "spend": 150.95,
+        "impressions": 1984,
+        "clicks": 50,
+        "cpc": 3.019,
+        "cpm": 76.083669,
+        "ctr": 2.520161,
+        "results": 1,
+        "cost_per_result": 150.95,
+        "result_type": "Lead Form"
+      }
+    },
+    {
+      "id": "120250966229970699",
+      "name": "Hindi update  Campaign",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-06-04T09:00:54+0530",
+      "start_time": "2026-06-04T09:00:55+0530",
+      "insights": {
+        "spend": 48780.1,
+        "impressions": 984663,
+        "clicks": 21097,
+        "cpc": 2.312182,
+        "cpm": 49.539893,
+        "ctr": 2.14256,
+        "results": 1162,
+        "cost_per_result": 41.98,
+        "result_type": "Lead Form"
+      }
+    },
+    {
+      "id": "120250963824820699",
+      "name": "New Hindi Leads Campaign",
+      "status": "ARCHIVED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-06-04T08:28:08+0530",
+      "start_time": "2026-06-04T08:28:08+0530"
+    },
+    {
+      "id": "120250953417380699",
+      "name": "New Hindi Leads Campaign 04/06/2026",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-06-04T01:36:47+0530",
+      "start_time": "2026-06-04T06:00:00+0530",
+      "insights": {
+        "spend": 109.74,
+        "impressions": 1310,
+        "clicks": 25,
+        "cpc": 4.3896,
+        "cpm": 83.770992,
+        "ctr": 1.908397,
+        "results": 1,
+        "cost_per_result": 109.74,
+        "result_type": "Lead Form"
+      }
+    },
+    {
+      "id": "120250852994580699",
+      "name": "murukku machine tamil 02 /06/02026",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-06-02T18:15:50+0530",
+      "start_time": "2026-06-02T18:16:22+0530",
+      "insights": {
+        "spend": 28021.68,
+        "impressions": 632326,
+        "clicks": 12610,
+        "cpc": 2.222179,
+        "cpm": 44.315242,
+        "ctr": 1.994225,
+        "results": 724,
+        "cost_per_result": 38.7,
+        "result_type": "Lead Form"
+      }
+    },
+    {
+      "id": "120250850856010699",
+      "name": "murukku machine Hindi 02 /06/02026",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-06-02T18:08:19+0530",
+      "start_time": "2026-06-02T18:08:20+0530",
+      "insights": {
+        "spend": 1205.33,
+        "impressions": 13454,
+        "clicks": 306,
+        "cpc": 3.938987,
+        "cpm": 89.58897,
+        "ctr": 2.274417,
+        "results": 7,
+        "cost_per_result": 172.19,
+        "result_type": "Lead Form"
+      }
+    },
+    {
+      "id": "120250846046730699",
+      "name": "New TAMIL Leads Campaign02/06/2026",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-06-02T16:17:50+0530",
+      "start_time": "2026-06-02T16:17:50+0530",
+      "insights": {
+        "spend": 80.71,
+        "impressions": 1061,
+        "clicks": 12,
+        "cpc": 6.725833,
+        "cpm": 76.069746,
+        "ctr": 1.131008,
+        "results": 1,
+        "cost_per_result": 80.71,
+        "result_type": "Lead Form"
+      }
+    },
+    {
+      "id": "120250842470000699",
+      "name": "New Hindi campaign 02/06/2026",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-06-02T16:10:35+0530",
+      "start_time": "2026-06-02T16:10:36+0530",
+      "insights": {
+        "spend": 222.88,
+        "impressions": 2870,
+        "clicks": 25,
+        "cpc": 8.9152,
+        "cpm": 77.658537,
+        "ctr": 0.87108,
+        "results": 2,
+        "cost_per_result": 111.44,
+        "result_type": "Lead Form"
+      }
+    },
+    {
+      "id": "120249526682310699",
+      "name": "Hindi murukku machine call campaign 16/05/2026",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-05-16T18:48:32+0530",
+      "start_time": "2026-05-17T06:00:00+0530",
+      "insights": {
+        "spend": 15904.87,
+        "impressions": 289009,
+        "clicks": 4319,
+        "cpc": 3.682535,
+        "cpm": 55.032438,
+        "ctr": 1.494417,
+        "results": 533,
+        "cost_per_result": 29.84,
+        "result_type": "Phone Calls"
+      }
+    },
+    {
+      "id": "120249526500530699",
+      "name": "tamil murukku machine call campaign16/05/2026",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-05-16T18:37:06+0530",
+      "start_time": "2026-05-16T18:37:07+0530",
+      "insights": {
+        "spend": 7760.48,
+        "impressions": 90749,
+        "clicks": 1545,
+        "cpc": 5.022964,
+        "cpm": 85.515873,
+        "ctr": 1.702498,
+        "results": 192,
+        "cost_per_result": 40.42,
+        "result_type": "Phone Calls"
+      }
+    },
+    {
+      "id": "120248875050260699",
+      "name": "murukku machine call campaign 08/05/2026",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-05-08T10:09:41+0530",
+      "start_time": "2026-05-08T10:09:42+0530",
+      "insights": {
+        "spend": 8138.29,
+        "impressions": 107499,
+        "clicks": 1968,
+        "cpc": 4.13531,
+        "cpm": 75.705728,
+        "ctr": 1.830715,
+        "results": 232,
+        "cost_per_result": 35.08,
+        "result_type": "Phone Calls"
+      }
+    },
+    {
+      "id": "120248673642190699",
+      "name": "murukku machine test New Leads Campaign 06/03/2026 -",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-05-06T01:58:39+0530",
+      "start_time": "2026-05-06T06:00:00+0530",
+      "insights": {
+        "spend": 5110.4,
+        "impressions": 66972,
+        "clicks": 2226,
+        "cpc": 2.295777,
+        "cpm": 76.306516,
+        "ctr": 3.323777,
+        "results": 124,
+        "cost_per_result": 41.21,
+        "result_type": "Lead Form"
+      }
+    },
+    {
+      "id": "120248673516890699",
+      "name": "CALL Campaign 06/04/2026 - Copy",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-05-06T01:43:57+0530",
+      "start_time": "2026-05-06T06:00:00+0530",
+      "insights": {
+        "spend": 1904.4,
+        "impressions": 40241,
+        "clicks": 739,
+        "cpc": 2.576996,
+        "cpm": 47.324868,
+        "ctr": 1.836435,
+        "results": 91,
+        "cost_per_result": 20.93,
+        "result_type": "Phone Calls"
+      }
+    },
+    {
+      "id": "120248672993980699",
+      "name": "murukku machine New Leads Campaign 06/05/2026",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-05-06T01:30:03+0530",
+      "start_time": "2026-05-06T06:00:00+0530"
+    },
+    {
+      "id": "120247906632940699",
+      "name": "New Traffic Campaign",
+      "status": "PAUSED",
+      "objective": "OUTCOME_TRAFFIC",
+      "created_time": "2026-04-21T14:01:47+0530",
+      "start_time": "2026-04-21T14:01:48+0530",
+      "insights": {
+        "spend": 7049.88,
+        "impressions": 559720,
+        "clicks": 8637,
+        "cpc": 0.816242,
+        "cpm": 12.595369,
+        "ctr": 1.543093,
+        "results": 2,
+        "cost_per_result": 3524.94,
+        "result_type": "WhatsApp Chat"
+      }
+    },
+    {
+      "id": "120247209785040699",
+      "name": "murukku machine CALL  Campaign 06/04/2026",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-04-06T23:24:01+0530",
+      "start_time": "2026-04-07T06:00:00+0530",
+      "insights": {
+        "spend": 3679.25,
+        "impressions": 48398,
+        "clicks": 1620,
+        "cpc": 2.271142,
+        "cpm": 76.020703,
+        "ctr": 3.347246,
+        "results": 158,
+        "cost_per_result": 23.29,
+        "result_type": "Phone Calls"
+      }
+    },
+    {
+      "id": "120246803342160699",
+      "name": "RK",
+      "status": "ARCHIVED",
+      "objective": "OUTCOME_LEADS",
+      "daily_budget": "50000",
+      "created_time": "2026-03-31T16:04:18+0530",
+      "start_time": "2026-03-31T16:04:19+0530"
+    },
+    {
+      "id": "120246512125360699",
+      "name": "Job Vacancy Alert!",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-03-26T23:38:17+0530",
+      "start_time": "2026-03-27T06:00:00+0530",
+      "insights": {
+        "spend": 3183.39,
+        "impressions": 87455,
+        "clicks": 2742,
+        "cpc": 1.160974,
+        "cpm": 36.40032,
+        "ctr": 3.135327,
+        "results": 209,
+        "cost_per_result": 15.23,
+        "result_type": "Lead Form"
+      }
+    },
+    {
+      "id": "120245586149440699",
+      "name": "murukku machine New Leads Campaign 06/03/2026",
+      "status": "PAUSED",
+      "objective": "OUTCOME_LEADS",
+      "created_time": "2026-03-05T21:47:35+0530",
+      "start_time": "2026-03-06T06:00:00+0530",
+      "insights": {
+        "spend": 36787.67,
+        "impressions": 708800,
+        "clicks": 22087,
+        "cpc": 1.66558,
+        "cpm": 51.90134,
+        "ctr": 3.116112,
+        "results": 2064,
+        "cost_per_result": 17.82,
+        "result_type": "Lead Form"
+      }
+    },
+    {
+      "id": "120235458349000699",
+      "name": "Messages Ad: Want to turn your snack passion into a profitable...",
+      "status": "ARCHIVED",
+      "objective": "MESSAGES",
+      "daily_budget": "10000",
+      "created_time": "2025-08-25T10:34:18+0530",
+      "start_time": "2025-08-25T10:34:48+0530",
+      "insights": {
+        "spend": 307.64,
+        "impressions": 3254,
+        "clicks": 22,
+        "cpc": 13.983636,
+        "cpm": 94.542102,
+        "ctr": 0.676091,
+        "results": 3,
+        "cost_per_result": 102.55,
+        "result_type": "WhatsApp Chat"
+      }
+    },
+    {
+      "id": "120234517071790699",
+      "name": "Calls Ad: 🚀 How Important is a Machine to Your Murukku...",
+      "status": "ARCHIVED",
+      "objective": "LINK_CLICKS",
+      "daily_budget": "50000",
+      "created_time": "2025-08-11T11:35:12+0530",
+      "start_time": "2025-08-11T11:35:42+0530",
+      "insights": {
+        "spend": 654.77,
+        "impressions": 36763,
+        "clicks": 300,
+        "cpc": 2.182567,
+        "cpm": 17.81057,
+        "ctr": 0.816038,
+        "results": 17,
+        "cost_per_result": 38.52,
+        "result_type": "Phone Calls"
+      }
+    },
+    {
+      "id": "120234202012410699",
+      "name": "New Engagement campaign",
+      "status": "ARCHIVED",
+      "objective": "OUTCOME_ENGAGEMENT",
+      "daily_budget": "100000",
+      "created_time": "2025-08-05T17:56:03+0530",
+      "start_time": "2025-08-05T17:56:04+0530",
+      "insights": {
+        "spend": 4243.77,
+        "impressions": 243228,
+        "clicks": 5656,
+        "cpc": 0.750313,
+        "cpm": 17.447703,
+        "ctr": 2.32539,
+        "results": 3,
+        "cost_per_result": 1414.59,
+        "result_type": "Lead Form"
+      }
+    },
+    {
+      "id": "120234013079110699",
+      "name": "Calls Ad: https://youtu.be/nyPJ8jOENw0?si=qM6hAxkbSguFXyr_",
+      "status": "ARCHIVED",
+      "objective": "LINK_CLICKS",
+      "daily_budget": "50000",
+      "created_time": "2025-08-02T18:32:06+0530",
+      "start_time": "2025-08-02T18:32:36+0530",
+      "insights": {
+        "spend": 2022.42,
+        "impressions": 39503,
+        "clicks": 787,
+        "cpc": 2.569784,
+        "cpm": 51.196618,
+        "ctr": 1.992254,
+        "results": 63,
+        "cost_per_result": 32.1,
+        "result_type": "Phone Calls"
+      }
+    },
+    {
+      "id": "120234006009600699",
+      "name": "Test - New Awareness campaign",
+      "status": "ARCHIVED",
+      "objective": "OUTCOME_AWARENESS",
+      "created_time": "2025-08-02T16:16:25+0530",
+      "start_time": "2025-08-02T16:16:27+0530",
+      "insights": {
+        "spend": 8075.83,
+        "impressions": 5127843,
+        "clicks": 2417,
+        "cpc": 3.341262,
+        "cpm": 1.574898,
+        "ctr": 0.047135,
+        "results": 3,
+        "cost_per_result": 2691.94,
+        "result_type": "WhatsApp Chat"
+      }
+    },
+    {
+      "id": "120234003664710699",
+      "name": "New Awareness campaign",
+      "status": "ARCHIVED",
+      "objective": "OUTCOME_AWARENESS",
+      "created_time": "2025-08-02T16:11:07+0530",
+      "start_time": "2025-08-02T16:11:08+0530",
+      "insights": {
+        "spend": 8087.98,
+        "impressions": 5347447,
+        "clicks": 2111,
+        "cpc": 3.83135,
+        "cpm": 1.512494,
+        "ctr": 0.039477,
+        "results": 3,
+        "cost_per_result": 2695.99,
+        "result_type": "Phone Calls"
+      }
+    },
+    {
+      "id": "120233940133500699",
+      "name": "Calls Ad: 🔧 Low Murukku Machine For Sale!",
+      "status": "ARCHIVED",
+      "objective": "LINK_CLICKS",
+      "daily_budget": "10000",
+      "created_time": "2025-08-01T16:48:07+0530",
+      "start_time": "2025-08-01T16:48:37+0530",
+      "insights": {
+        "spend": 382.65,
+        "impressions": 14079,
+        "clicks": 174,
+        "cpc": 2.199138,
+        "cpm": 27.178777,
+        "ctr": 1.235883,
+        "results": 12,
+        "cost_per_result": 31.89,
+        "result_type": "Phone Calls"
+      }
+    },
+    {
+      "id": "120233823227760699",
+      "name": "Calls Ad: https://youtube.com/shorts/pq3IUZpk2m4?si=mIjr6jll...",
+      "status": "ARCHIVED",
+      "objective": "LINK_CLICKS",
+      "daily_budget": "8701",
+      "created_time": "2025-07-31T15:37:18+0530",
+      "start_time": "2025-07-31T15:37:48+0530",
+      "insights": {
+        "spend": 44.95,
+        "impressions": 861,
+        "clicks": 23,
+        "cpc": 1.954348,
+        "cpm": 52.206736,
+        "ctr": 2.671312,
+        "results": 1,
+        "cost_per_result": 44.95,
+        "result_type": "Phone Calls"
+      }
+    },
+    {
+      "id": "120206147411120699",
+      "name": "Post: \"https://www.youtube.com/watch?v=cbuY260TrJE&t=1s\"",
+      "status": "ARCHIVED",
+      "objective": "LINK_CLICKS",
+      "lifetime_budget": "60000",
+      "created_time": "2024-02-08T10:58:18+0530",
+      "start_time": "2024-02-08T10:58:48+0530",
+      "insights": {
+        "spend": 579.12,
+        "impressions": 43449,
+        "clicks": 396,
+        "cpc": 1.462424,
+        "cpm": 13.32873,
+        "ctr": 0.911413,
+        "results": 33,
+        "cost_per_result": 17.55,
+        "result_type": "Phone Calls"
+      }
+    },
+    {
+      "id": "120206147178680699",
+      "name": "Ongoing send message promotion Sri Lakshmi Industries",
+      "status": "ARCHIVED",
+      "objective": "MESSAGES",
+      "daily_budget": "26000",
+      "created_time": "2024-02-08T10:50:41+0530",
+      "start_time": "2024-02-08T10:51:11+0530",
+      "insights": {
+        "spend": 1592.99,
+        "impressions": 20393,
+        "clicks": 792,
+        "cpc": 2.011351,
+        "cpm": 78.114549,
+        "ctr": 3.883686,
+        "results": 6,
+        "cost_per_result": 265.5,
+        "result_type": "WhatsApp Chat"
+      }
+    },
+    {
+      "id": "23851054594130698",
+      "name": "PRAKASH R",
+      "status": "ARCHIVED",
+      "objective": "VIDEO_VIEWS",
+      "created_time": "2022-07-05T17:22:21+0530",
+      "start_time": "2022-07-05T17:22:22+0530"
+    }
+  ],
+  "overview": {
+    "total_spend_30d": 314408.7,
+    "total_leads_30d": 6123,
+    "total_chats_30d": 3396,
+    "total_calls_30d": 1302,
+    "avg_cpl": 29.1,
+    "wallet_balance": 941.67,
+    "saves_count": 2893,
+    "shares_count": 2076
+  },
+  "state_breakdown": [
+    {
+      "region": "Maharashtra",
+      "spend": 16540,
+      "leads": 470,
+      "cpl": 35.19,
+      "impressions": 120500,
+      "clicks": 1840
+    },
+    {
+      "region": "Tamil Nadu",
+      "spend": 12430,
+      "leads": 359,
+      "cpl": 34.62,
+      "impressions": 94200,
+      "clicks": 1620
+    },
+    {
+      "region": "Gujarat",
+      "spend": 8900,
+      "leads": 245,
+      "cpl": 36.32,
+      "impressions": 65100,
+      "clicks": 980
+    },
+    {
+      "region": "Karnataka",
+      "spend": 6200,
+      "leads": 182,
+      "cpl": 34.06,
+      "impressions": 45000,
+      "clicks": 710
+    },
+    {
+      "region": "Andhra Pradesh",
+      "spend": 3200,
+      "leads": 120,
+      "cpl": 26.66,
+      "impressions": 24000,
+      "clicks": 430
+    },
+    {
+      "region": "Odisha",
+      "spend": 2400,
+      "leads": 100,
+      "cpl": 24,
+      "impressions": 18500,
+      "clicks": 310
+    },
+    {
+      "region": "Telangana",
+      "spend": 3100,
+      "leads": 95,
+      "cpl": 32.63,
+      "impressions": 22000,
+      "clicks": 350
+    },
+    {
+      "region": "Madhya Pradesh",
+      "spend": 4100,
+      "leads": 110,
+      "cpl": 37.27,
+      "impressions": 31000,
+      "clicks": 480
+    },
+    {
+      "region": "Kerala",
+      "spend": 2100,
+      "leads": 58,
+      "cpl": 36.2,
+      "impressions": 16200,
+      "clicks": 260
+    }
+  ],
+  "demographics": [
+    {
+      "age": "35-44",
+      "gender": "male",
+      "spend": 28400,
+      "leads": 554,
+      "cpl": 51.26,
+      "impressions": 210000
+    },
+    {
+      "age": "45-54",
+      "gender": "male",
+      "spend": 18200,
+      "leads": 340,
+      "cpl": 53.52,
+      "impressions": 135000
+    },
+    {
+      "age": "25-34",
+      "gender": "male",
+      "spend": 8300,
+      "leads": 142,
+      "cpl": 58.45,
+      "impressions": 68000
+    },
+    {
+      "age": "55-64",
+      "gender": "male",
+      "spend": 5200,
+      "leads": 98,
+      "cpl": 53.06,
+      "impressions": 38000
+    },
+    {
+      "age": "18-24",
+      "gender": "male",
+      "spend": 3644,
+      "leads": 12,
+      "cpl": 303.66,
+      "impressions": 31000
+    },
+    {
+      "age": "65+",
+      "gender": "male",
+      "spend": 1595,
+      "leads": 8,
+      "cpl": 199.37,
+      "impressions": 14000
+    }
+  ],
+  "placements": [
+    {
+      "publisher_platform": "whatsapp",
+      "platform_position": "status",
+      "spend": 633,
+      "leads": 65,
+      "cpl": 9.73,
+      "impressions": 14200,
+      "clicks": 310,
+      "ctr": 2.18
+    },
+    {
+      "publisher_platform": "facebook",
+      "platform_position": "feed",
+      "spend": 24500,
+      "leads": 680,
+      "cpl": 36.02,
+      "impressions": 182000,
+      "clicks": 3850,
+      "ctr": 2.11
+    },
+    {
+      "publisher_platform": "facebook",
+      "platform_position": "video_feeds",
+      "spend": 14200,
+      "leads": 380,
+      "cpl": 37.36,
+      "impressions": 112000,
+      "clicks": 2140,
+      "ctr": 1.91
+    },
+    {
+      "publisher_platform": "instagram",
+      "platform_position": "feed",
+      "spend": 9400,
+      "leads": 195,
+      "cpl": 48.2,
+      "impressions": 71000,
+      "clicks": 1120,
+      "ctr": 1.57
+    },
+    {
+      "publisher_platform": "instagram",
+      "platform_position": "reels",
+      "spend": 11439,
+      "leads": 108,
+      "cpl": 105.91,
+      "impressions": 96800,
+      "clicks": 688,
+      "ctr": 0.71
+    }
+  ],
+  "hourly": [
+    {
+      "hour": "06:00",
+      "leads": 18,
+      "spend": 540,
+      "clicks": 82
+    },
+    {
+      "hour": "08:00",
+      "leads": 115,
+      "spend": 3450,
+      "clicks": 490
+    },
+    {
+      "hour": "10:00",
+      "leads": 74,
+      "spend": 2220,
+      "clicks": 310
+    },
+    {
+      "hour": "12:00",
+      "leads": 88,
+      "spend": 2640,
+      "clicks": 370
+    },
+    {
+      "hour": "13:00",
+      "leads": 125,
+      "spend": 3750,
+      "clicks": 520
+    },
+    {
+      "hour": "15:00",
+      "leads": 62,
+      "spend": 1860,
+      "clicks": 260
+    },
+    {
+      "hour": "17:00",
+      "leads": 81,
+      "spend": 2430,
+      "clicks": 340
+    },
+    {
+      "hour": "19:00",
+      "leads": 95,
+      "spend": 2850,
+      "clicks": 400
+    },
+    {
+      "hour": "21:00",
+      "leads": 137,
+      "spend": 4110,
+      "clicks": 580
+    },
+    {
+      "hour": "23:00",
+      "leads": 32,
+      "spend": 960,
+      "clicks": 135
+    }
+  ],
+  "video_retention": {
+    "video_3s_views": 162908,
+    "video_p25_watched": 26152,
+    "video_p50_watched": 11420,
+    "video_p75_watched": 6840,
+    "video_p100_watched": 4120,
+    "avg_watch_time_seconds": 4.5
+  },
+  "post_engagement": {
+    "post_saves": 469,
+    "post_shares": 343,
+    "post_comments": 52,
+    "post_reactions": 4085
+  },
+  "is_cached": false,
+  "cached_at": "2026-10-17T08:21:47.251Z"
+}

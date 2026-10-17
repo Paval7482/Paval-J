@@ -1,0 +1,106 @@
+[
+  {
+    "id": "form_murukku_factory_2026",
+    "name": "Sri Lakshmi Murukku Machinery Quotation Form",
+    "status": "ACTIVE",
+    "form_type": "MORE_VOLUME",
+    "flexible_delivery": true,
+    "intro": {
+      "enabled": true,
+      "headline": "Sri Lakshmi Industries - Automatic Murukku Machines",
+      "description": "Direct Coimbatore factory price for 30–50 kg/hr & 60-100 kg/hr SS 304 food-grade automatic murukku extruders. Get live catalog & WhatsApp video demo.",
+      "background_image": "/assets/murukku_machine_hero.jpg"
+    },
+    "questions": {
+      "description": "We use your details strictly to send machine quotation and factory delivery terms.",
+      "contact_fields": {
+        "full_name": true,
+        "phone_number": true,
+        "email": true,
+        "city": true,
+        "state": true
+      },
+      "custom_questions": [
+        {
+          "id": "q_capacity",
+          "type": "MULTIPLE_CHOICE",
+          "question": "Required Production Capacity Per Hour",
+          "options": [
+            "30–50 kg/hr (Standard Commercial)",
+            "60–100 kg/hr (Heavy Industrial)",
+            "Complete Custom Turnkey Plant"
+          ]
+        },
+        {
+          "id": "q_stage",
+          "type": "MULTIPLE_CHOICE",
+          "question": "Your Snack Business Stage",
+          "options": [
+            "Starting New Murukku Business",
+            "Upgrading Existing Manual Unit",
+            "Commercial Factory Expansion"
+          ]
+        }
+      ]
+    },
+    "privacy_policy": {
+      "url": "https://srilakshmiindustrial.com/privacy-policy",
+      "link_text": "Visit Sri Lakshmi Industries Phase II Privacy Policy"
+    },
+    "ending": {
+      "headline": "Thanks, you're all set!",
+      "description": "Our industrial engineering team will contact you via WhatsApp / Phone within 15 minutes with complete machine specs & ex-factory pricing.",
+      "button_type": "WHATSAPP",
+      "button_text": "Chat on WhatsApp",
+      "action_url": "https://wa.me/919842266366?text=Hi%20Sri%20Lakshmi%20Industries%2C%20I%20just%20submitted%20the%20lead%20form%20for%20Murukku%20Machine."
+    },
+    "created_at": "2026-10-14T08:00:00.000Z",
+    "lead_count": 680
+  },
+  {
+    "id": "form_hindi_belt_2026",
+    "name": "North India Hindi Murukku Extruder Form",
+    "status": "ACTIVE",
+    "form_type": "MORE_VOLUME",
+    "flexible_delivery": true,
+    "intro": {
+      "enabled": true,
+      "headline": "Sri Lakshmi Industries - Commercial Chakli Machine",
+      "description": "Automatic food-grade SS 304 Chakli & Murukku making machinery with pan-India transport and video installation support."
+    },
+    "questions": {
+      "description": "Hum aapko direct factory price list aur machine working video WhatsApp karenge.",
+      "contact_fields": {
+        "full_name": true,
+        "phone_number": true,
+        "email": true,
+        "city": true,
+        "state": true
+      },
+      "custom_questions": [
+        {
+          "id": "q_diesel_electric",
+          "type": "MULTIPLE_CHOICE",
+          "question": "Power / Motor Preference",
+          "options": [
+            "Single Phase Domestic 220V",
+            "Three Phase Commercial 440V"
+          ]
+        }
+      ]
+    },
+    "privacy_policy": {
+      "url": "https://srilakshmiindustrial.com/privacy-policy",
+      "link_text": "Visit Sri Lakshmi Industries Privacy Policy"
+    },
+    "ending": {
+      "headline": "Dhanyawaad! Aapki inquiry prapt ho gayi.",
+      "description": "Hamari team agle 15 minute mein aapko WhatsApp par complete quotation bhejegi.",
+      "button_type": "WHATSAPP",
+      "button_text": "WhatsApp Par Chat Karein",
+      "action_url": "https://wa.me/919842266366"
+    },
+    "created_at": "2026-10-14T09:30:00.000Z",
+    "lead_count": 340
+  }
+]
