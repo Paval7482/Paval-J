@@ -755,6 +755,15 @@ export default function MetaAdsStudioPage() {
           <span className="text-xs text-muted-foreground hidden md:inline">
             Sri Lakshmi Paid Media Console: Seamlessly manage Meta and Google Ads
           </span>
+          <a
+            href="/owner-ads"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all ml-1"
+          >
+            <Smartphone className="h-3.5 w-3.5" />
+            Owner Mobile View (PIN)
+          </a>
         </div>
         <div className="flex items-center gap-1.5 p-1 rounded-xl bg-muted/60 border border-border/60">
           <button
