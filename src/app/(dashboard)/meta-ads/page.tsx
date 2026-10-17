@@ -164,9 +164,9 @@ export default function MetaAdsStudioPage() {
   const [selectedCampaignName, setSelectedCampaignName] = useState<string>("");
   const [selectedCampaignStatus, setSelectedCampaignStatus] = useState<string>("ACTIVE");
   const [selectedCampaignInsights, setSelectedCampaignInsights] = useState<any>(null);
-  const [inspectorInitialLevel, setInspectorInitialLevel] = useState<"campaign" | "adset" | "ad" | "jadhagam">("campaign");
+  const [inspectorInitialLevel, setInspectorInitialLevel] = useState<"campaign" | "adset" | "ad" | "summary" | "jadhagam">("campaign");
 
-  const handleOpenInspector = (camp: MetaCampaign, initialTab: "campaign" | "jadhagam" = "campaign") => {
+  const handleOpenInspector = (camp: MetaCampaign, initialTab: "campaign" | "summary" | "jadhagam" = "campaign") => {
     setSelectedCampaignId(camp.id);
     setSelectedCampaignName(camp.name);
     setSelectedCampaignStatus(camp.status);
@@ -2774,10 +2774,10 @@ export default function MetaAdsStudioPage() {
                           variant="default"
                           size="sm"
                           className="flex-1 h-8 text-xs font-bold gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-sm"
-                          onClick={() => handleOpenInspector(camp, "jadhagam")}
+                          onClick={() => handleOpenInspector(camp, "summary")}
                         >
                           <Sparkles className="h-3.5 w-3.5" />
-                          View Ad Jadhagam
+                          View Ad Summary & History
                         </Button>
                         {camp.status !== "ARCHIVED" && (
                           <Button
@@ -2899,10 +2899,10 @@ export default function MetaAdsStudioPage() {
                                 variant="outline"
                                 size="sm"
                                 className="h-7 text-xs gap-1 font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
-                                onClick={() => handleOpenInspector(camp, "jadhagam")}
-                                title="Open 360° Ad Jadhagam"
+                                onClick={() => handleOpenInspector(camp, "summary")}
+                                title="Open 360° Ad Summary & Performance History"
                               >
-                                <Sparkles className="h-3 w-3" /> Jadhagam
+                                <Sparkles className="h-3 w-3" /> Summary & History
                               </Button>
                               {camp.status === "ARCHIVED" ? (
                                 <Badge variant="outline" className="h-7 text-xs px-2 text-muted-foreground border-border/60">

@@ -70,7 +70,7 @@ interface CampaignInspectorModalProps {
   initialCampaignName?: string;
   initialStatus?: string;
   campaignInsights?: any;
-  initialLevel?: "campaign" | "adset" | "ad" | "jadhagam";
+  initialLevel?: "campaign" | "adset" | "ad" | "summary" | "jadhagam";
   onUpdated?: () => void;
 }
 
@@ -175,7 +175,7 @@ export function CampaignInspectorModal({
   initialLevel = "campaign",
   onUpdated,
 }: CampaignInspectorModalProps) {
-  const [level, setLevel] = useState<"campaign" | "adset" | "ad" | "jadhagam">(initialLevel);
+  const [level, setLevel] = useState<"campaign" | "adset" | "ad" | "summary" | "jadhagam">(initialLevel);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [details, setDetails] = useState<any>(null);
@@ -654,15 +654,15 @@ export function CampaignInspectorModal({
             <ChevronRight className="h-3 w-3 text-muted-foreground/50" />
             <button
               type="button"
-              onClick={() => setLevel("jadhagam")}
+              onClick={() => setLevel("summary")}
               className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                level === "jadhagam"
+                level === "summary" || level === "jadhagam"
                   ? "bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500/40"
                   : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
               }`}
             >
               <Sparkles className="h-3.5 w-3.5" />
-              4. Ad Jadhagam (360°)
+              4. Ad Summary & History (360°)
             </button>
           </div>
         </div>
@@ -1371,9 +1371,9 @@ export function CampaignInspectorModal({
               )}
 
               {/* ========================================================= */}
-              {/* LEVEL 4: AD JADHAGAM (DEEP 360° DOSSIER) */}
+              {/* LEVEL 4: AD SUMMARY & PERFORMANCE HISTORY */}
               {/* ========================================================= */}
-              {level === "jadhagam" && (() => {
+              {(level === "summary" || level === "jadhagam") && (() => {
                 const spend = campaignInsights?.spend || (details?.campaign?.daily_budget ? details.campaign.daily_budget / 100 : 18251.03);
                 const impressions = campaignInsights?.impressions || 297657;
                 const clicks = campaignInsights?.clicks || 5745;
@@ -1415,7 +1415,7 @@ export function CampaignInspectorModal({
 
                 return (
                   <div className="space-y-6 max-w-4xl mx-auto">
-                    {/* Top Jadhagam Header Banner */}
+                    {/* Top Summary Header Banner */}
                     <div className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.06] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-black">
@@ -1423,10 +1423,10 @@ export function CampaignInspectorModal({
                         </div>
                         <div>
                           <h4 className="text-sm font-bold text-foreground">
-                            360° Ad Jadhagam: {campaignName}
+                            360° Ad Summary & History: {campaignName}
                           </h4>
                           <p className="text-xs text-muted-foreground">
-                            Deep Buyer Intent, Geo Spend Analytics & Placement Intelligence
+                            Deep Buyer Intent, Geo Spend Analytics & Performance History
                           </p>
                         </div>
                       </div>
